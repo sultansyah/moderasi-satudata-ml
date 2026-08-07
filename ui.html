@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Moderasi Gambar Otomatis - Portal SatuData</title>
+<style>
+  :root {
+    --bg: #0f172a; --card: #1e293b; --border: #334155; --text: #e2e8f0;
+    --muted: #94a3b8; --green: #22c55e; --red: #ef4444; --orange: #f59e0b; --blue: #3b82f6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 2rem 1rem 4rem; }
+  header { text-align: center; margin-bottom: 2rem; }
+  header h1 { font-size: 1.6rem; color: #fff; }
+  header p { color: var(--muted); margin-top: .3rem; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; }
+  .card h2 { font-size: 1.15rem; margin-bottom: 1rem; color: #fff; display: flex; align-items: center; gap: .5rem; }
+  .card h2 .num { background: var(--blue); border-radius: 6px; font-size: .8rem; padding: .1rem .5rem; color: #fff; }
+  .dropzone { border: 2px dashed var(--border); border-radius: 12px; padding: 2.5rem 1rem; text-align: center; cursor: pointer; transition: .2s; }
+  .dropzone.dragover { border-color: var(--blue); background: rgba(59,130,246,.08); }
+  .dropzone p { color: var(--muted); }
+  .dropzone .btn { display: inline-block; margin-top: .8rem; background: var(--blue); color: #fff; border: 0; padding: .6rem 1.4rem; border-radius: 8px; font-size: .95rem; cursor: pointer; }
+  .dropzone .btn:hover { filter: brightness(1.1); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  #proses { background: var(--red); color: #fff; padding: .8rem 2.4rem; font-size: 1.05rem; }
+  #proses:hover { filter: brightness(1.1); }
+  #proses:disabled { color: #fff; }
+  .loading { display: none; margin-top: 1rem; }
+  .loading.visible { display: block; }
+  .fly-zone { position: relative; height: 140px; border: 1px dashed var(--border); border-radius: 12px; overflow: hidden; background: var(--bg); }
+  .fly { position: absolute; left: 50%; top: 50%; width: 28px; height: 28px; margin: -14px 0 0 -14px; animation: buzz 1.8s ease-in-out infinite; }
+  .fly .body { position: absolute; left: 8px; top: 12px; width: 12px; height: 10px; background: #0f172a; border-radius: 55% 45% 50% 50%; box-shadow: inset 0 0 0 1px #334155; }
+  .fly .body::before, .fly .body::after { content: ''; position: absolute; top: -1px; width: 4px; height: 4px; background: var(--red); border-radius: 50%; }
+  .fly .body::before { left: -2px; } .fly .body::after { right: -2px; }
+  .fly .wing { position: absolute; top: 7px; width: 13px; height: 8px; background: rgba(148,163,184,.35); border-radius: 60% 40% 60% 40%; }
+  .fly .wing.w1 { left: -2px; transform-origin: right center; animation: flap .1s linear infinite; }
+  .fly .wing.w2 { right: -2px; transform-origin: left center; animation: flap .1s linear infinite reverse; }
+  .loading-txt { text-align: center; margin-top: .6rem; font-size: .9rem; color: var(--muted); }
+  @keyframes buzz {
+    0%   { transform: translate(0,0) rotate(0deg); }
+    10%  { transform: translate(55px,-40px) rotate(28deg); }
+    20%  { transform: translate(-45px,-65px) rotate(-22deg); }
+    30%  { transform: translate(30px,15px) rotate(40deg); }
+    40%  { transform: translate(-65px,35px) rotate(-30deg); }
+    50%  { transform: translate(45px,55px) rotate(18deg); }
+    60%  { transform: translate(-25px,-50px) rotate(-40deg); }
+    70%  { transform: translate(40px,-15px) rotate(24deg); }
+    80%  { transform: translate(-55px,50px) rotate(-26deg); }
+    90%  { transform: translate(25px,-35px) rotate(34deg); }
+    100% { transform: translate(0,0) rotate(0deg); }
+  }
+  @keyframes flap { 0%,100% { transform: rotate(0deg) scaleY(1); } 50% { transform: rotate(0deg) scaleY(.12); } }
+  .dropzone input[type=file] { display: none; }
+  .filelist { margin-top: 1rem; font-size: .85rem; color: var(--muted); }
+  .progress { display: none; margin-top: 1rem; font-size: .9rem; color: var(--muted); }
+  .progress.visible { display: block; }
+  .summary { display: flex; gap: 1rem; margin-top: 1rem; }
+  .sum-card { flex: 1; text-align: center; border-radius: 10px; padding: .8rem; background: var(--bg); border: 1px solid var(--border); }
+  .sum-card b { display: block; font-size: 1.5rem; }
+  .sum-card.lolos b { color: var(--green); } .sum-card.dimoderasi b { color: var(--red); } .sum-card.error b { color: var(--orange); }
+  .sum-card span { font-size: .8rem; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: .85rem; }
+  th, td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  .badge { display: inline-block; padding: .15rem .6rem; border-radius: 999px; font-size: .75rem; font-weight: 700; }
+  .badge.lolos { background: rgba(34,197,94,.15); color: var(--green); }
+  .badge.dimoderasi { background: rgba(239,68,68,.15); color: var(--red); }
+  .badge.error { background: rgba(245,158,11,.15); color: var(--orange); }
+  .kw { display: inline-block; background: rgba(245,158,11,.12); color: var(--orange); border-radius: 4px; padding: 0 .3rem; margin: .1rem .15rem 0 0; font-size: .72rem; }
+  .kwcat { margin-bottom: 1rem; }
+  .kwcat h3 { font-size: .92rem; color: #fff; margin-bottom: .4rem; }
+  .kwcat h3 span { color: var(--muted); font-weight: 400; font-size: .78rem; }
+  .kwcat .kws { display: flex; flex-wrap: wrap; gap: .35rem; }
+  .kwcat .kw { margin: 0; font-size: .78rem; padding: .2rem .55rem; }
+  .alasan { color: var(--muted); font-size: .8rem; }
+  .muted { color: var(--muted); }
+  .arch-item { display: flex; gap: 1rem; margin-bottom: 1.2rem; }
+  .arch-item .step { flex-shrink: 0; width: 2.2rem; height: 2.2rem; border-radius: 50%; background: var(--bg); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--blue); }
+  .arch-item h3 { font-size: 1rem; color: #fff; }
+  .arch-item p { font-size: .9rem; color: var(--muted); }
+  .flow { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; justify-content: center; margin: 1.2rem 0; }
+  .flow .node { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: .45rem .9rem; font-size: .85rem; text-align: center; }
+  .flow .arrow { color: var(--muted); font-size: 1.1rem; }
+  .flow .node.vio { border-color: var(--red); color: var(--red); }
+  .flow .node.ok { border-color: var(--green); color: var(--green); }
+  code { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: .1rem .35rem; font-size: .82rem; }
+  table.metrics { width: 100%; }
+  table.metrics td, table.metrics th { font-size: .85rem; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 640px) { .grid2 { grid-template-columns: 1fr; } .summary { flex-direction: column; } }
+  ul.clean { padding-left: 1.2rem; }
+  ul.clean li { margin-bottom: .4rem; font-size: .9rem; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>🛡️ Sistem Moderasi Gambar Otomatis — Portal SatuData</h1>
+  <p>YOLOv11 + Tesseract OCR + Keyword Filtering · Keputusan: <b style="color:var(--green)">LOLOS</b> / <b style="color:var(--red)">DIMODERASI</b></p>
+</header>
+
+<!-- ===== 1. MODERASI ===== -->
+<div class="card">
+  <h2><span class="num">1</span> Moderasi Gambar</h2>
+  <div class="dropzone" id="dz">
+    <p>Klik untuk pilih, atau tarik-dan-lepas gambar di sini<br>
+       <span class="muted" style="font-size:.85rem">Bisa 1 file atau banyak sekaligus (satu per satu / bulk)</span></p>
+    <button class="btn" type="button">Pilih Gambar</button>
+    <input type="file" id="file" accept="image/*" multiple>
+    <div class="filelist" id="filelist"></div>
+  </div>
+  <div style="text-align:center; margin-top:1rem">
+    <button class="btn" type="button" id="proses" disabled>▶ Proses Moderasi</button>
+  </div>
+  <div class="progress" id="progress">Masih menunggu pilihan gambar...</div>
+  <div class="loading" id="loading">
+    <div class="fly-zone">
+      <div class="fly">
+        <span class="wing w1"></span>
+        <span class="wing w2"></span>
+        <span class="body"></span>
+      </div>
+    </div>
+    <div class="loading-txt" id="loading-txt">Memproses...</div>
+  </div>
+  <div id="result"></div>
+</div>
+
+<!-- ===== 2. KATA KUNCI ===== -->
+<div class="card">
+  <h2><span class="num">2</span> Daftar Kata Kunci Blacklist (<span id="kw-total">45</span>)</h2>
+  <div class="muted" style="font-size:.85rem; margin-bottom:1rem">
+    Dicocokkan ke teks hasil OCR (dan nama file sebagai fallback). Jika ada yang cocok → gambar langsung <b style="color:var(--red)">DIMODERASI</b>.
+  </div>
+  <div id="kw-aborsi"></div>
+  <div id="kw-boraks"></div>
+  <div id="kw-umum"></div>
+</div>
+
+<!-- ===== 3. ARSITEKTUR ===== -->
+<div class="card">
+  <h2><span class="num">3</span> Arsitektur Sistem</h2>
+  <div class="flow">
+    <div class="node">Input Gambar</div><div class="arrow">→</div>
+    <div class="node">YOLO11-cls<br><span class="muted" style="font-size:.72rem">deteksi visual</span></div><div class="arrow">→</div>
+    <div class="node">Tesseract OCR<br><span class="muted" style="font-size:.72rem">ekstrak teks</span></div><div class="arrow">→</div>
+    <div class="node">Keyword Filter<br><span class="muted" style="font-size:.72rem">45 kata kunci</span></div><div class="arrow">→</div>
+    <div class="node vio">DIMODERASI</div>
+  </div>
+  <div class="flow"><div class="arrow" style="text-align:center">└ hasil negatif →</div><div class="node ok">LOLOS</div></div>
+
+  <div class="arch-item"><div class="step">1</div><div>
+    <h3>YOLO11n-cls — Deteksi Visual</h3>
+    <p>Klasifikasi gambar ke 3 kelas: <code>obat_aborsi</code>, <code>boraks</code>, <code>normal</code>.
+       Kecepatan ~37 ms/gambar (26.7 img/s). Jika terdeteksi kelas violative → langsung <b style="color:var(--red)">DIMODERASI</b>.</p>
+  </div></div>
+  <div class="arch-item"><div class="step">2</div><div>
+    <h3>Tesseract OCR — Ekstraksi Teks</h3>
+    <p>Membaca teks di dalam gambar (bahasa Indonesia + Inggris). Menangkap nomor WhatsApp, kata kunci iklan ilegal, atau nama produk
+       yang tidak bisa dikenali secara visual oleh YOLO. Ini bagian paling lambat: ~550 ms/gambar.</p>
+  </div></div>
+  <div class="arch-item"><div class="step">3</div><div>
+    <h3>Keyword Filtering — Pencocokan Kata Kunci</h3>
+    <p>Mencocokkan teks hasil OCR terhadap <b>45 keyword blacklist</b> (aborsi, cytotec, misoprostol, boraks, formalin, dsb).
+       Teks dinormalisasi dulu (huruf kecil, buang simbol). Nama file dipakai sebagai fallback bila OCR kosong. Instan (&lt; 1 ms).</p>
+  </div></div>
+  <div class="arch-item"><div class="step">4</div><div>
+    <h3>Keputusan Akhir</h3>
+    <p><b style="color:var(--red)">DIMODERASI</b> jika <code>YOLO = violative</code> ATAU <code>keyword match</code>. Jika tidak ada keduanya →
+       <b style="color:var(--green)">LOLOS</b>.</p>
+  </div></div>
+  <div class="arch-item"><div class="step">5</div><div>
+    <h3>Web Server (FastAPI)</h3>
+    <p>Endpoint <code>POST /api/moderasi/satu</code> (1 gambar) &amp; <code>POST /api/moderasi/bulk</code> (banyak, max 1000, diproses paralel 4 thread).
+       Model dimuat sekali saat startup. Respons dalam format JSON.</p>
+  </div></div>
+</div>
+
+<!-- ===== 4. MODEL ===== -->
+<div class="card">
+  <h2><span class="num">4</span> Penjelasan Model</h2>
+
+  <h3 style="color:#fff; margin-bottom:.6rem">Apa itu YOLO11n-cls?</h3>
+  <p class="muted" style="font-size:.92rem; margin-bottom:1rem">
+    YOLO11 adalah keluarga model deteksi/klasifikasi modern dari Ultralytics. Varian <code>nano</code> dipilih agar ringan:
+    <b>1.53 juta parameter</b>, 47 lapisan, ~3.2 GFLOPs, bobot hanya <b>3.2 MB</b>. Cukup untuk prototipe dan tetap cepat di CPU.
+  </p>
+
+  <h3 style="color:#fff; margin-bottom:.6rem">Data Training</h3>
+  <table class="metrics" style="margin-bottom:1rem">
+    <tr><th>Kelas</th><th style="text-align:right">Train</th><th style="text-align:right">Val</th><th>Asal data</th></tr>
+    <tr><td>obat_aborsi</td><td style="text-align:right">195</td><td style="text-align:right">59</td><td class="muted">Scrape Google Images</td></tr>
+    <tr><td>boraks</td><td style="text-align:right">176</td><td style="text-align:right">43</td><td class="muted">Scrape Google Images</td></tr>
+    <tr><td>normal</td><td style="text-align:right">240</td><td style="text-align:right">47</td><td class="muted">Makanan, dokumen, hewan, mobil, dsb.</td></tr>
+  </table>
+  <ul class="clean">
+    <li>Total <b>611 gambar train</b> + <b>149 gambar val</b> (split otomatis).</li>
+    <li>Training: 14 epoch, batch 32, ukuran input 224×224, CPU-only, ± 11 menit (early stop di epoch 2 karena akurasi puncak).</li>
+  </ul>
+
+  <h3 style="color:#fff; margin:.6rem 0">Metrik Kinerja</h3>
+  <table class="metrics" style="margin-bottom:1rem">
+    <tr><th>Metrik</th><th style="text-align:right">Nilai</th><th style="text-align:right">Keterangan</th></tr>
+    <tr><td>Top-1 Accuracy (val)</td><td style="text-align:right">84.6%</td><td style="text-align:right" class="muted">tebakan 1 teratas benar</td></tr>
+    <tr><td>Top-5 Accuracy (val)</td><td style="text-align:right">100%</td><td style="text-align:right" class="muted">kelas benar ada di 5 besar</td></tr>
+    <tr><td>Recall moderasi</td><td style="text-align:right">95.1%</td><td style="text-align:right" class="muted">gambar ilegal yang berhasil diblokir</td></tr>
+    <tr><td>Precision moderasi</td><td style="text-align:right">90.7%</td><td style="text-align:right" class="muted">gambar yang ditandai memang ilegal</td></tr>
+  </table>
+
+  <h3 style="color:#fff; margin:.6rem 0">Kinerja per Kelas (F1-score)</h3>
+  <table class="metrics" style="margin-bottom:1rem">
+    <tr><th>Kelas</th><th style="text-align:right">Precision</th><th style="text-align:right">Recall</th><th style="text-align:right">F1</th></tr>
+    <tr><td>obat_aborsi</td><td style="text-align:right">0.944</td><td style="text-align:right">0.864</td><td style="text-align:right">0.903</td></tr>
+    <tr><td>normal</td><td style="text-align:right">0.881</td><td style="text-align:right">0.787</td><td style="text-align:right">0.831</td></tr>
+    <tr><td>boraks</td><td style="text-align:right">0.717</td><td style="text-align:right">0.884</td><td style="text-align:right">0.792</td></tr>
+  </table>
+
+  <h3 style="color:#fff; margin:.6rem 0">Keterbatasan &amp; Catatan</h3>
+  <ul class="clean">
+    <li><b>Boraks paling sulit</b> — bubuk/kristal putih sering tertukar dengan benda putih biasa (mis. makanan sehat). F1 terendah: 0.79.</li>
+    <li><b>False positive normal</b>: ±10 dari 47 gambar normal ditandai DIMODERASI (sengaja lebih agresif agar konten ilegal tidak lolos).</li>
+    <li><b>Bottleneck OCR</b>: ~550 ms/gambar; YOLO hanya 37 ms. Kalau hanya dijalankan saat YOLO = normal, kecepatan naik drastis.</li>
+    <li>Dataset kecil &amp; noisy (scrape). Akurasi bisa naik dengan data lebih banyak, augmentasi, atau GPU untuk training lebih lama.</li>
+  </ul>
+</div>
+
+</div>
+
+<script>
+const dz = document.getElementById("dz");
+const fileInput = document.getElementById("file");
+const filelist = document.getElementById("filelist");
+const progress = document.getElementById("progress");
+const result = document.getElementById("result");
+const prosesBtn = document.getElementById("proses");
+const loading = document.getElementById("loading");
+const loadingTxt = document.getElementById("loading-txt");
+
+function showLoading(msg) {
+  loadingTxt.textContent = msg;
+  loading.classList.add("visible");
+}
+function hideLoading() { loading.classList.remove("visible"); }
+
+dz.addEventListener("click", () => fileInput.click());
+dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("dragover"); });
+dz.addEventListener("dragleave", () => dz.classList.remove("dragover"));
+dz.addEventListener("drop", e => { e.preventDefault(); dz.classList.remove("dragover"); if (e.dataTransfer.files.length) fileInput.files = e.dataTransfer.files; updateList(); });
+fileInput.addEventListener("change", updateList);
+
+function updateList() {
+  const n = fileInput.files.length;
+  filelist.textContent = n ? `${n} gambar dipilih` : "";
+  prosesBtn.disabled = n === 0;
+  if (n === 0) {
+    progress.classList.remove("visible");
+    progress.textContent = "Masih menunggu pilihan gambar...";
+    hideLoading();
+  }
+}
+
+prosesBtn.addEventListener("click", async () => {
+  const files = fileInput.files;
+  if (!files.length) return;
+  prosesBtn.disabled = true;
+  const fd = new FormData();
+  for (const f of files) fd.append("files", f);
+
+  progress.classList.remove("visible");
+  showLoading(`Memproses ${files.length} gambar... lalat lagi jaga tempat`);
+  result.innerHTML = "";
+
+  try {
+    const resp = await fetch("/api/moderasi/bulk", { method: "POST", body: fd });
+    const j = await resp.json();
+    if (!resp.ok) { progress.textContent = "Error: " + JSON.stringify(j); progress.classList.add("visible"); hideLoading(); prosesBtn.disabled = false; return; }
+    hideLoading();
+    prosesBtn.disabled = false;
+
+    const s = j.ringkasan;
+    let html = `<div class="summary">
+      <div class="sum-card lolos"><b>${s.lolos}</b><span>LOLOS</span></div>
+      <div class="sum-card dimoderasi"><b>${s.dimoderasi}</b><span>DIMODERASI</span></div>
+      <div class="sum-card error"><b>${s.error}</b><span>ERROR</span></div>
+      <div class="sum-card"><b>${s.total}</b><span>TOTAL</span></div>
+    </div>`;
+
+    html += "<table><tr><th>File</th><th>Status</th><th>YOLO</th><th>Keyword</th><th>Alasan</th></tr>";
+    for (const it of j.results) {
+      const badge = it.keputusan === "LOLOS" ? "lolos" : (it.keputusan === "DIMODERASI" ? "dimoderasi" : "error");
+      const kw = (it.keyword_hits || []).map(k => `<span class="kw">${escapeHtml(k)}</span>`).join("") || "-";
+      const alasan = (it.alasan || []).slice(0, 3).map(escapeHtml).join("; ") || "-";
+      const yolo = it.yolo_class ? `${escapeHtml(it.yolo_class)} <span class="muted">(${it.yolo_conf})</span>` : "-";
+      html += `<tr><td>${escapeHtml(it.filename)}</td>
+        <td><span class="badge ${badge}">${escapeHtml(it.keputusan)}</span></td>
+        <td>${yolo}</td><td>${kw}</td><td class="alasan">${alasan}</td></tr>`;
+    }
+    html += "</table>";
+    result.innerHTML = html;
+  } catch (err) {
+    progress.textContent = "Gagal menghubungi server: " + err;
+    progress.classList.add("visible");
+    hideLoading();
+    prosesBtn.disabled = false;
+  }
+});
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+(async function loadKeywords() {
+  try {
+    const resp = await fetch("/api/keywords");
+    if (!resp.ok) return;
+    const j = await resp.json();
+    document.getElementById("kw-total").textContent = j.total;
+    const cats = [
+      ["aborsi", "Obat Aborsi / Penggugur"],
+      ["boraks", "Boraks / Formalin"],
+      ["umum", "Tanda Iklan Spam / Umum"],
+    ];
+    for (const [key, label] of cats) {
+      const list = j[key] || [];
+      document.getElementById("kw-" + key).innerHTML =
+        `<div class="kwcat"><h3>${label} <span>(${list.length})</span></h3>` +
+        `<div class="kws">${list.map(k => `<span class="kw">${escapeHtml(k)}</span>`).join("") || '<span class="muted">-</span>'}</div></div>`;
+    }
+  } catch (e) { /* UI tetap jalan walau fetch gagal */ }
+})();
+</script>
+</body>
+</html>

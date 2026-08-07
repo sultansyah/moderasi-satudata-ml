@@ -1,0 +1,42 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ===== Dataset & model weights (besar, bisa diunduh/dibuat ulang) =====
+dataset/
+runs/
+yolo11n-cls.pt
+*.onnx
+*_openvino_model/
+
+# ===== Log & hasil benchmark =====
+*.log
+train_v3_log.txt
+benchmark_offline.txt
+benchmark_http.txt
+analisis_*.txt
+test_*.txt
+
+# ===== Env / secret =====
+.env
+.env.*
+*.key
+*.pem
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+desktop.ini
