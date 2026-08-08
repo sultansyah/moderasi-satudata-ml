@@ -144,7 +144,7 @@ def main():
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8787)
     ap.add_argument("--model", default=None, help="Path model YOLO (override default)")
-    ap.add_argument("--visual", default=None, choices=["yolo", "clip"], help="Engine visual: yolo | clip (default: env MODERASI_VISUAL atau yolo)")
+    ap.add_argument("--visual", default=None, choices=["yolo", "clip", "mobilenetv3"], help="Engine visual: yolo | clip | mobilenetv3 (default: env MODERASI_VISUAL atau yolo)")
     args = ap.parse_args()
 
     if args.model:

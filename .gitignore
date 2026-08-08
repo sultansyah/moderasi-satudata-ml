@@ -18,10 +18,13 @@ ENV/
 # ===== Dataset & model weights (besar, bisa diunduh/dibuat ulang) =====
 dataset/
 dataset_*/
+dataset.zip
+*.zip
 runs/
 *.pt
 *.onnx
 !models/best.pt
+!models/mobilenetv3_best.pt
 *_openvino_model/
 
 # ===== Log & hasil benchmark =====

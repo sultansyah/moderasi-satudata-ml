@@ -41,6 +41,11 @@ if [[ -f "$SRC_DIR/models/best.pt" ]]; then
 else
   echo "[WARN] models/best.pt tidak ada - pastikan model tersedia nanti"
 fi
+# model alternatif MobileNetV3 (untuk MODERASI_VISUAL=mobilenetv3)
+if [[ -f "$SRC_DIR/models/mobilenetv3_best.pt" ]]; then
+  mkdir -p "$APP_DIR/models"
+  cp -f "$SRC_DIR/models/mobilenetv3_best.pt" "$APP_DIR/models/"
+fi
 # fallback: model dari hasil training lokal (runs/) kalau ada
 if [[ -d "$SRC_DIR/runs" ]]; then
   cp -rf "$SRC_DIR/runs" "$APP_DIR/"

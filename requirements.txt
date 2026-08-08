@@ -8,3 +8,5 @@ ultralytics
 # Opsional: hanya dibutuhkan saat MODERASI_VISUAL=clip (engine visual CLIP zero-shot).
 # Install via: pip install transformers
 # transformers
+# Opsional: torchvision untuk MODERASI_VISUAL=mobilenetv3 (sudah terinstall di deploy step 4).
+# torchvision

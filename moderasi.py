@@ -18,7 +18,7 @@ FALLBACK_MODEL = os.path.join(BASE, "runs", "yolo11n-cls-mod-v4", "weights", "be
 
 KELAS_VIOLATIVE = ["obat_aborsi"]
 
-# Engine klasifikasi visual: "yolo" (default, lama) atau "clip" (zero-shot, lebih tahan).
+# Engine klasifikasi visual: "yolo" (default, lama), "clip" (zero-shot), atau "mobilenetv3".
 # Bisa diganti via env MODERASI_VISUAL atau argumen --visual tanpa mengubah kode.
 VISUAL_ENGINE = os.environ.get("MODERASI_VISUAL", "yolo").strip().lower()
 
@@ -74,6 +74,49 @@ def _clip_classify(image_path):
     return cls_name, round(float(conf), 4), violative
 
 
+MOBILENETV3_MODEL = os.path.join(BASE, "models", "mobilenetv3_best.pt")
+IMGNET_MEAN = [0.485, 0.456, 0.406]
+IMGNET_STD = [0.229, 0.224, 0.225]
+
+_mobilenetv3 = None
+
+
+def _load_mobilenetv3():
+    global _mobilenetv3
+    if _mobilenetv3 is None:
+        if not os.path.isfile(MOBILENETV3_MODEL):
+            raise FileNotFoundError(f"Model MobileNetV3 tidak ditemukan: {MOBILENETV3_MODEL}")
+        import torch
+        from torchvision import models, transforms
+        ckpt = torch.load(MOBILENETV3_MODEL, map_location="cpu")
+        class_names = list(ckpt["class_names"])
+        model = models.mobilenet_v3_large()
+        model.classifier[3] = torch.nn.Linear(model.classifier[3].in_features, len(class_names))
+        model.load_state_dict(ckpt["state_dict"])
+        model.eval()
+        img_size = int(ckpt.get("img_size", 224))
+        tf = transforms.Compose([
+            transforms.Resize(256),
+            transforms.CenterCrop(img_size),
+            transforms.ToTensor(),
+            transforms.Normalize(IMGNET_MEAN, IMGNET_STD),
+        ])
+        _mobilenetv3 = (model, class_names, tf)
+    return _mobilenetv3
+
+
+def _mobilenetv3_classify(image_path):
+    import torch
+    model, class_names, tf = _load_mobilenetv3()
+    img = tf(Image.open(image_path).convert("RGB")).unsqueeze(0)
+    with torch.no_grad():
+        probs = torch.softmax(model(img), dim=1)[0]
+    idx = int(probs.argmax())
+    cls_name = class_names[idx]
+    conf = float(probs[idx])
+    return cls_name, round(conf, 4), cls_name in KELAS_VIOLATIVE
+
+
 def _visual_classify(model, image_path):
     """Klasifikasi visual. Mengembalikan (cls_name, conf, violative, engine)."""
     if VISUAL_ENGINE == "clip":
@@ -81,6 +124,11 @@ def _visual_classify(model, image_path):
             return (*_clip_classify(image_path), "clip")
         except Exception as e:
             print(f"[WARN] CLIP gagal ({e}); fallback ke YOLO.")
+    if VISUAL_ENGINE == "mobilenetv3":
+        try:
+            return (*_mobilenetv3_classify(image_path), "mobilenetv3")
+        except Exception as e:
+            print(f"[WARN] MobileNetV3 gagal ({e}); fallback ke YOLO.")
     preds = model.predict(image_path, verbose=False)
     if preds:
         p = preds[0]
@@ -202,7 +250,7 @@ def main():
     ap = argparse.ArgumentParser(description="Sistem Moderasi Gambar Otomatis")
     ap.add_argument("input", nargs="+", help="Path gambar atau folder")
     ap.add_argument("--model", default=None, help="Path model YOLO (default: best.pt dari training)")
-    ap.add_argument("--visual", default=None, choices=["yolo", "clip"], help="Engine visual: yolo | clip (default: env MODERASI_VISUAL atau yolo)")
+    ap.add_argument("--visual", default=None, choices=["yolo", "clip", "mobilenetv3"], help="Engine visual: yolo | clip | mobilenetv3 (default: env MODERASI_VISUAL atau yolo)")
     ap.add_argument("--lang", default="ind+eng", help="Bahasa OCR Tesseract (default: ind+eng)")
     ap.add_argument("--json", action="store_true", help="Output JSON ke konsol")
     args = ap.parse_args()
