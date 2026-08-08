@@ -16,6 +16,13 @@ fi
 APP_DIR="/opt/moderasi"
 SERVICE="moderasi.service"
 PORT="${PORT:-8787}"
+# Engine visual default (yolo | clip | mobilenetv3). Set sekali di sini, disuntikkan
+# ke systemd service:  sudo VISUAL_ENGINE=mobilenetv3 bash deploy/deploy.sh
+VISUAL_ENGINE="${VISUAL_ENGINE:-yolo}"
+case "$VISUAL_ENGINE" in
+  yolo|clip|mobilenetv3) ;;
+  *) echo "[ERROR] VISUAL_ENGINE tidak valid: $VISUAL_ENGINE (pilihan: yolo, clip, mobilenetv3)"; exit 1 ;;
+esac
 
 if [[ "$EUID" -ne 0 ]]; then
   echo "[ERROR] Jalankan sebagai root: sudo bash deploy.sh"
@@ -62,9 +69,29 @@ pip install -q torch torchvision --index-url https://download.pytorch.org/whl/cp
 
 echo "==> [5/7] Install dependensi aplikasi"
 pip install -q -r requirements.txt
+# CLIP zero-shot butuh transformers (hanya jika engine default = clip)
+if [[ "$VISUAL_ENGINE" == "clip" ]]; then
+  echo "    (engine=clip) install transformers + unduh bobot CLIP (~350MB)..."
+  pip install -q transformers
+  python - <<'PY'
+import os
+os.environ.setdefault("HF_HOME", "/opt/moderasi/hf_cache")
+from transformers import CLIPModel, CLIPProcessor
+CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+print("    CLIP model siap.")
+PY
+fi
 
 echo "==> [6/7] Pasang systemd service ($SERVICE)"
-sed "s/--port 8787/--port ${PORT}/" "$SRC_DIR/deploy/$SERVICE" > "/etc/systemd/system/$SERVICE"
+if [[ "$VISUAL_ENGINE" == "yolo" ]]; then
+  sed "s/--port 8787/--port ${PORT}/" "$SRC_DIR/deploy/$SERVICE" > "/etc/systemd/system/$SERVICE"
+else
+  sed -e "s/--port 8787/--port ${PORT}/" \
+      -e "/Environment=PYTHONUNBUFFERED=1/a Environment=MODERASI_VISUAL=${VISUAL_ENGINE}" \
+      "$SRC_DIR/deploy/$SERVICE" > "/etc/systemd/system/$SERVICE"
+  echo "    MODERASI_VISUAL=${VISUAL_ENGINE} ditambahkan ke service."
+fi
 systemctl daemon-reload
 systemctl enable "$SERVICE"
 systemctl restart "$SERVICE"
@@ -86,5 +113,6 @@ echo "  API        : POST http://IP_VPS:${PORT}/api/moderasi/bulk"
 echo "  Status     : systemctl status $SERVICE"
 echo "  Log        : journalctl -u $SERVICE -f"
 echo "  Restart    : systemctl restart $SERVICE"
+echo "  Engine     : $VISUAL_ENGINE (ganti default via UI atau POST /api/engines/default?engine=...)"
 echo "  Catatan    : buka port ${PORT} di firewall (ufw allow ${PORT}/tcp)"
 echo "=========================================================="
