@@ -1,0 +1,14 @@
+[project]
+name = "moderasi-satudata"
+version = "1.0.0"
+description = "Sistem Moderasi Gambar Otomatis (YOLO11-cls + Tesseract OCR + Keyword Filtering)"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "python-multipart",
+    "pytesseract",
+    "pillow",
+    "httpx",
+    "ultralytics",
+]
