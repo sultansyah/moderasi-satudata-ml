@@ -19,8 +19,34 @@ FALLBACK_MODEL = os.path.join(BASE, "runs", "yolo11n-cls-mod-v4", "weights", "be
 KELAS_VIOLATIVE = ["obat_aborsi"]
 
 # Engine klasifikasi visual: "yolo" (default, lama), "clip" (zero-shot), atau "mobilenetv3".
-# Bisa diganti via env MODERASI_VISUAL atau argumen --visual tanpa mengubah kode.
+# Bisa diganti via env MODERASI_VISUAL, argumen --visual, atau runtime (set_visual_engine).
+VALID_VISUAL_ENGINES = ("yolo", "clip", "mobilenetv3")
 VISUAL_ENGINE = os.environ.get("MODERASI_VISUAL", "yolo").strip().lower()
+
+
+def set_visual_engine(engine):
+    """Ganti engine visual default saat runtime (mis. dari API/UI)."""
+    global VISUAL_ENGINE
+    engine = engine.strip().lower()
+    if engine in VALID_VISUAL_ENGINES:
+        VISUAL_ENGINE = engine
+        return True
+    return False
+
+
+def visual_engine_available(engine):
+    engine = engine.strip().lower()
+    if engine == "yolo":
+        return True
+    if engine == "clip":
+        try:
+            import transformers  # noqa: F401
+            return True
+        except Exception:
+            return False
+    if engine == "mobilenetv3":
+        return os.path.isfile(MOBILENETV3_MODEL)
+    return False
 
 CLIP_MODEL_ID = "openai/clip-vit-base-patch32"
 CLIP_PROMPTS_VIOLATIVE = [
@@ -117,14 +143,15 @@ def _mobilenetv3_classify(image_path):
     return cls_name, round(conf, 4), cls_name in KELAS_VIOLATIVE
 
 
-def _visual_classify(model, image_path):
+def _visual_classify(model, image_path, engine=None):
     """Klasifikasi visual. Mengembalikan (cls_name, conf, violative, engine)."""
-    if VISUAL_ENGINE == "clip":
+    engine = (engine or VISUAL_ENGINE).strip().lower()
+    if engine == "clip":
         try:
             return (*_clip_classify(image_path), "clip")
         except Exception as e:
             print(f"[WARN] CLIP gagal ({e}); fallback ke YOLO.")
-    if VISUAL_ENGINE == "mobilenetv3":
+    if engine == "mobilenetv3":
         try:
             return (*_mobilenetv3_classify(image_path), "mobilenetv3")
         except Exception as e:
@@ -196,7 +223,7 @@ def keyword_hits(text_normalized):
     return hits
 
 
-def moderasi_satu_gambar(model, image_path, lang="ind+eng"):
+def moderasi_satu_gambar(model, image_path, lang="ind+eng", visual=None):
     filename = os.path.basename(image_path)
     result = {
         "file": image_path,
@@ -211,8 +238,8 @@ def moderasi_satu_gambar(model, image_path, lang="ind+eng"):
         "alasan": [],
     }
 
-    # 1) Visual classification (CLIP zero-shot atau YOLO)
-    cls_name, conf, violative, engine = _visual_classify(model, image_path)
+    # 1) Visual classification (CLIP zero-shot, MobileNetV3, atau YOLO)
+    cls_name, conf, violative, engine = _visual_classify(model, image_path, engine=visual)
     result["visual_engine"] = engine
     result["yolo_class"] = cls_name
     result["yolo_conf"] = conf

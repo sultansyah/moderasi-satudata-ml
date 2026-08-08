@@ -6,11 +6,13 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 
 import uvicorn
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException, Query
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from PIL import Image
 
-from moderasi import load_model, moderasi_satu_gambar, KELAS_VIOLATIVE, VISUAL_ENGINE
+import moderasi
+from moderasi import load_model, moderasi_satu_gambar, KELAS_VIOLATIVE, VALID_VISUAL_ENGINES
+from moderasi import set_visual_engine, visual_engine_available
 from keywords import KEYWORDS_ALL, KEYWORDS_ABORSI, KEYWORDS_BORAKS, KEYWORDS_UMUM
 
 ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"}
@@ -43,7 +45,7 @@ def _simpan_temp(name, data):
     return path
 
 
-def _moderate_bytes(name, data):
+def _moderate_bytes(name, data, visual=None):
     tmp = _simpan_temp(name, data)
     try:
         try:
@@ -61,7 +63,7 @@ def _moderate_bytes(name, data):
                 "keyword_hits": [],
                 "ocr_text": "",
             }
-        result = moderasi_satu_gambar(get_model(), tmp)
+        result = moderasi_satu_gambar(get_model(), tmp, visual=visual)
         result["file"] = name
         result["filename"] = name
         return result
@@ -70,6 +72,17 @@ def _moderate_bytes(name, data):
             os.remove(tmp)
         except OSError:
             pass
+
+
+def _resolve_visual(visual):
+    if visual is None:
+        return
+    visual = visual.strip().lower()
+    if visual not in VALID_VISUAL_ENGINES:
+        raise HTTPException(status_code=400,
+                            detail=f"Engine visual tidak valid: {visual} (pilihan: yolo, clip, mobilenetv3)")
+    if not visual_engine_available(visual):
+        raise HTTPException(status_code=400, detail=f"Engine '{visual}' belum tersedia di server ini")
 
 
 def _ringkasan(results):
@@ -91,18 +104,20 @@ def index():
 
 
 @app.post("/api/moderasi/satu")
-async def moderasi_satu(file: UploadFile = File(...)):
-    """Moderasi SATU gambar. Upload via multipart form (field: file)."""
+async def moderasi_satu(file: UploadFile = File(...), visual: str = Query(None)):
+    """Moderasi SATU gambar. Upload via multipart form (field: file). Opsional ?visual=yolo|clip|mobilenetv3"""
+    _resolve_visual(visual)
     if not file.filename:
         raise HTTPException(status_code=400, detail="Nama file kosong")
     data = await file.read()
-    result = _moderate_bytes(file.filename, data)
+    result = _moderate_bytes(file.filename, data, visual)
     return {"ringkasan": _ringkasan([result]), "results": [result]}
 
 
 @app.post("/api/moderasi/bulk")
-async def moderasi_bulk(files: list[UploadFile] = File(...)):
-    """Moderasi BANYAK gambar sekaligus. Upload via multipart form (field: files)."""
+async def moderasi_bulk(files: list[UploadFile] = File(...), visual: str = Query(None)):
+    """Moderasi BANYAK gambar sekaligus. Upload via multipart form (field: files). Opsional ?visual=yolo|clip|mobilenetv3"""
+    _resolve_visual(visual)
     if not files:
         raise HTTPException(status_code=400, detail="Tidak ada file diunggah")
     if len(files) > 1000:
@@ -114,12 +129,33 @@ async def moderasi_bulk(files: list[UploadFile] = File(...)):
         items.append((f.filename or f"unnamed_{len(items)}.jpg", data))
 
     if len(items) == 1:
-        results = [_moderate_bytes(*items[0])]
+        results = [_moderate_bytes(*items[0], visual)]
     else:
         with ThreadPoolExecutor(max_workers=min(MAX_WORKERS, len(items))) as ex:
-            results = list(ex.map(lambda t: _moderate_bytes(*t), items))
+            results = list(ex.map(lambda t: _moderate_bytes(*t, visual), items))
 
     return {"ringkasan": _ringkasan(results), "results": results}
+
+
+@app.get("/api/engines")
+def get_engines():
+    """Daftar engine visual yang tersedia + engine default saat ini."""
+    return {
+        "current": moderasi.VISUAL_ENGINE,
+        "available": [
+            {"name": e, "available": visual_engine_available(e)}
+            for e in VALID_VISUAL_ENGINES
+        ],
+    }
+
+
+@app.post("/api/engines/default")
+def set_default_engine(engine: str = Query(...)):
+    """Ganti engine visual default server. ?engine=yolo|clip|mobilenetv3"""
+    if not set_visual_engine(engine):
+        raise HTTPException(status_code=400,
+                            detail=f"Engine visual tidak valid: {engine} (pilihan: yolo, clip, mobilenetv3)")
+    return get_engines()
 
 
 @app.get("/api/keywords")
@@ -135,7 +171,7 @@ def get_keywords():
 @app.get("/health")
 def health():
     m = get_model()
-    return {"status": "ok", "visual_engine": VISUAL_ENGINE, "model": os.path.basename(m.model.pt_path or "best.pt"), "kelas": list(m.names.values())}
+    return {"status": "ok", "visual_engine": moderasi.VISUAL_ENGINE, "model": os.path.basename(m.model.pt_path or "best.pt"), "kelas": list(m.names.values())}
 
 
 def main():

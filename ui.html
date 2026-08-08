@@ -70,6 +70,8 @@
 
   /* ---------- Actions ---------- */
   .actions { display: flex; align-items: center; justify-content: center; gap: .6rem; margin-top: 1.1rem; flex-wrap: wrap; }
+  .engine-pick { display: flex; flex-direction: column; gap: .2rem; font-size: .68rem; color: var(--muted); text-align: left; }
+  .engine-pick select { font: inherit; padding: .5rem .6rem; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; }
   .btn { font: inherit; font-weight: 600; cursor: pointer; border-radius: 8px; border: 1px solid transparent; }
   #proses { background: var(--primary); color: var(--primary-ink); padding: .62rem 2rem; font-size: .95rem; }
   #proses:hover:not(:disabled) { background: #0a4087; }
@@ -252,6 +254,13 @@
     <p class="queue-note" id="qnote" hidden></p>
 
     <div class="actions">
+      <label class="engine-pick" title="Pilih engine klasifikasi visual. Default disimpan di server.">Engine visual
+        <select id="engine" aria-label="Engine visual">
+          <option value="yolo">YOLO (cepat, bawaan)</option>
+          <option value="mobilenetv3">MobileNetV3 (Colab)</option>
+          <option value="clip">CLIP (zero-shot)</option>
+        </select>
+      </label>
       <button class="btn" type="button" id="proses" disabled>Proses Moderasi</button>
       <button class="btn" type="button" id="clear" hidden>Bersihkan</button>
     </div>
@@ -512,8 +521,11 @@
     const fd = new FormData();
     for (const it of valid) fd.append("files", it.file, it.file.name);
 
+    const engineSel = document.getElementById("engine");
+    const visQ = engineSel.value ? "?visual=" + encodeURIComponent(engineSel.value) : "";
+
     try {
-      const resp = await fetch("/api/moderasi/bulk", { method: "POST", body: fd });
+      const resp = await fetch("/api/moderasi/bulk" + visQ, { method: "POST", body: fd });
       let j;
       try { j = await resp.json(); } catch { j = { detail: "Respons server bukan JSON" }; }
       if (!resp.ok) throw new Error((j && j.detail) ? j.detail : "HTTP " + resp.status);
@@ -626,6 +638,25 @@
     if (e.key === "ArrowLeft") stepLb(-1);
     if (e.key === "ArrowRight") stepLb(1);
   });
+
+  /* ---------- engine visual ---------- */
+  (async function loadEngine() {
+    const sel = document.getElementById("engine");
+    try {
+      const resp = await fetch("/api/engines");
+      if (!resp.ok) return;
+      const j = await resp.json();
+      sel.value = j.current || "yolo";
+      [...sel.options].forEach(o => { if (!(j.available || []).find(e => e.name === o.value)?.available) o.disabled = true; });
+    } catch (e) { sel.value = "yolo"; }
+    sel.addEventListener("change", async () => {
+      const url = "/api/engines/default?engine=" + encodeURIComponent(sel.value);
+      try {
+        const r = await fetch(url, { method: "POST" });
+        if (!r.ok) { const j = await r.json().catch(() => ({})); setStatus("Engine tidak tersedia: " + ((j && j.detail) || sel.value), "err"); sel.value = "yolo"; }
+      } catch (e) { setStatus("Gagal set engine: " + e.message, "err"); }
+    });
+  })();
 
   /* ---------- keywords ---------- */
   (async function loadKeywords() {
