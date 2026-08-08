@@ -13,12 +13,23 @@ BATCH = 32
 PATIENCE = 12
 WORKERS = 0
 CACHE = "ram"
-NAME = "yolo11n-cls-mod-v4"
+NAME = "yolo11n-cls-mod-v5"
 
-print("=== Training YOLO11-cls (2 kelas: obat_aborsi / normal) ===")
+# Augmentasi online (diterapkan ultralytics tiap epoch, hanya data train)
+AUGMENT = True
+DEGREES = 5          # rotasi acak derajat
+TRANSLATE = 0.1      # geser acak
+SCALE = 0.2          # skala acak
+FLIPUD = 0.05        # flip vertikal
+MIXUP = 0.1          # campur 2 gambar
+# hsv_h/s/v, erasing (cutout), auto_augment randaugment memakai bawaan ultralytics
+
+print("=== Training YOLO11-cls (3 kelas: obat_aborsi / normal / dokumen) ===")
 print(f"  dataset : {DATASET}")
 print(f"  model   : {MODEL}")
 print(f"  epochs  : {EPOCHS}  batch: {BATCH}  imgsz: {IMGSZ}")
+print(f"  augment : {AUGMENT} (degrees={DEGREES}, translate={TRANSLATE}, scale={SCALE},"
+      f" flipud={FLIPUD}, mixup={MIXUP})")
 
 model = YOLO(MODEL)
 
@@ -35,6 +46,12 @@ results = model.train(
     pretrained=True,
     seed=42,
     verbose=True,
+    augment=AUGMENT,
+    degrees=DEGREES,
+    translate=TRANSLATE,
+    scale=SCALE,
+    flipud=FLIPUD,
+    mixup=MIXUP,
 )
 
 metrics = model.val(project=os.path.join(BASE, "runs"), name=f"{NAME}-val")
