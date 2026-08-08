@@ -18,6 +18,10 @@ FALLBACK_MODEL = os.path.join(BASE, "runs", "yolo11n-cls-mod-v4", "weights", "be
 
 KELAS_VIOLATIVE = ["obat_aborsi"]
 
+# Ambang konfidensi kelas violative untuk YOLO / MobileNetV3 (env VIOL_CONF_THRESHOLD).
+# Di bawah ambang, gambar TIDAK langsung DIMODERASI — dilanjut OCR + keyword.
+VIOL_CONF_THRESHOLD = float(os.environ.get("VIOL_CONF_THRESHOLD", "0.70"))
+
 # Engine klasifikasi visual: "yolo" (default, lama), "clip" (zero-shot), atau "mobilenetv3".
 # Bisa diganti via env MODERASI_VISUAL, argumen --visual, atau runtime (set_visual_engine).
 VALID_VISUAL_ENGINES = ("yolo", "clip", "mobilenetv3")
@@ -139,8 +143,9 @@ def _mobilenetv3_classify(image_path):
         probs = torch.softmax(model(img), dim=1)[0]
     idx = int(probs.argmax())
     cls_name = class_names[idx]
-    conf = float(probs[idx])
-    return cls_name, round(conf, 4), cls_name in KELAS_VIOLATIVE
+    conf = round(float(probs[idx]), 4)
+    violative = cls_name in KELAS_VIOLATIVE and conf >= VIOL_CONF_THRESHOLD
+    return cls_name, conf, violative
 
 
 def _visual_classify(model, image_path, engine=None):
@@ -161,8 +166,9 @@ def _visual_classify(model, image_path, engine=None):
         p = preds[0]
         if p.probs is not None:
             cls_name = model.names[int(p.probs.top1)]
-            conf = float(p.probs.top1conf)
-            return cls_name, round(conf, 4), cls_name in KELAS_VIOLATIVE, "yolo"
+            conf = round(float(p.probs.top1conf), 4)
+            violative = cls_name in KELAS_VIOLATIVE and conf >= VIOL_CONF_THRESHOLD
+            return cls_name, conf, violative, "yolo"
     return None, None, False, "yolo"
 
 
