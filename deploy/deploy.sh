@@ -2,12 +2,17 @@
 #
 # Deploy Script - Sistem Moderasi Gambar Otomatis
 # Target : Ubuntu / Debian (VPS), native install + systemd
-# Cara   : jalankan dari folder proyek ini:
-#          sudo bash deploy.sh
+# Cara   : dari folder proyek ini:
+#          sudo bash deploy/deploy.sh
 #
 set -euo pipefail
 
-SRC_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [[ "$(basename "$SCRIPT_DIR")" == "deploy" ]]; then
+  SRC_DIR="$(dirname "$SCRIPT_DIR")"
+else
+  SRC_DIR="$SCRIPT_DIR"
+fi
 APP_DIR="/opt/moderasi"
 SERVICE="moderasi.service"
 PORT="${PORT:-8787}"
