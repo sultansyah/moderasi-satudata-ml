@@ -406,6 +406,72 @@
     </div>
   </details>
 
+  <!-- ===== 5. REFERENSI API (collapsible) ===== -->
+  <details class="doc">
+    <summary><span class="n" style="display:inline-grid;place-items:center;width:22px;height:22px;border-radius:6px;background:var(--primary-soft);color:var(--primary);font-size:.78rem;font-weight:700">5</span> Referensi API <span class="chev">&#9656;</span></summary>
+    <div class="body">
+      <p>Base URL: <code>http://IP_SERVER:8787</code>. Dokumentasi interaktif otomatis juga tersedia di <code>/docs</code> (Swagger UI).</p>
+
+      <h3>Endpoint</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:.84rem">
+        <thead><tr><th style="text-align:left;padding:.35rem .5rem;border-bottom:1px solid var(--line)">Method &amp; Path</th><th style="text-align:left;padding:.35rem .5rem;border-bottom:1px solid var(--line)">Keterangan</th></tr></thead>
+        <tbody>
+          <tr><td style="padding:.35rem .5rem;border-bottom:1px solid var(--line)"><code>GET /</code></td><td style="padding:.35rem .5rem;border-bottom:1px solid var(--line)">Halaman upload (UI).</td></tr>
+          <tr><td style="padding:.35rem .5rem;border-bottom:1px solid var(--line)"><code>GET /health</code></td><td style="padding:.35rem .5rem;border-bottom:1px solid var(--line)">Status server + engine aktif + kelas model.</td></tr>
+          <tr><td style="padding:.35rem .5rem;border-bottom:1px solid var(--line)"><code>POST /api/moderasi/satu</code></td><td style="padding:.35rem .5rem;border-bottom:1px solid var(--line)">Moderasi 1 gambar. Field: <code>file</code>. Opsional <code>?visual=</code>.</td></tr>
+          <tr><td style="padding:.35rem .5rem;border-bottom:1px solid var(--line)"><code>POST /api/moderasi/bulk</code></td><td style="padding:.35rem .5rem;border-bottom:1px solid var(--line)">Moderasi banyak gambar (maks. 1000). Field: <code>files</code>. Opsional <code>?visual=</code>.</td></tr>
+          <tr><td style="padding:.35rem .5rem;border-bottom:1px solid var(--line)"><code>GET /api/keywords</code></td><td style="padding:.35rem .5rem;border-bottom:1px solid var(--line)">Daftar keyword blacklist (aborsi/boraks/umum).</td></tr>
+          <tr><td style="padding:.35rem .5rem;border-bottom:1px solid var(--line)"><code>GET /api/engines</code></td><td style="padding:.35rem .5rem;border-bottom:1px solid var(--line)">Daftar engine visual + ketersediaan + engine default.</td></tr>
+          <tr><td style="padding:.35rem .5rem;border-bottom:1px solid var(--line)"><code>POST /api/engines/default?engine=</code></td><td style="padding:.35rem .5rem;border-bottom:1px solid var(--line)">Ganti engine default (<code>yolo</code>|<code>clip</code>|<code>mobilenetv3</code>).</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Contoh cURL</h3>
+<pre style="overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:.7rem .8rem;font-size:.8rem;line-height:1.5"><code># Moderasi 1 gambar (engine default)
+curl -F "file=@foto.jpg" http://IP:8787/api/moderasi/satu
+
+# Moderasi 1 gambar, paksa engine clip
+curl -F "file=@foto.jpg" "http://IP:8787/api/moderasi/satu?visual=clip"
+
+# Moderasi banyak gambar sekaligus
+curl -F "files=@a.jpg" -F "files=@b.png" "http://IP:8787/api/moderasi/bulk?visual=mobilenetv3"
+
+# Cek engine yang tersedia
+curl http://IP:8787/api/engines
+
+# Ganti engine default server
+curl -X POST "http://IP:8787/api/engines/default?engine=mobilenetv3"</code></pre>
+
+      <h3>Format Respons Moderasi</h3>
+<pre style="overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:.7rem .8rem;font-size:.8rem;line-height:1.5"><code>{
+  "ringkasan": { "total": 2, "dimoderasi": 1, "lolos": 1, "error": 0 },
+  "results": [
+    {
+      "file": "foto.jpg",
+      "filename": "foto.jpg",
+      "visual_engine": "mobilenetv3",
+      "yolo_class": "obat_aborsi",
+      "yolo_conf": 0.9743,
+      "yolo_violative": true,
+      "ocr_text": "",
+      "keyword_hits": [],
+      "keputusan": "DIMODERASI",
+      "alasan": ["MOBILENETV3 deteksi kelas violative: obat_aborsi (conf 0.97); OCR dilewati (visual sudah violative)"]
+    }
+  ]
+}</code></pre>
+
+      <h3>Catatan</h3>
+      <ul>
+        <li><code>keputusan</code>: <code>LOLOS</code> | <code>DIMODERASI</code> | <code>ERROR</code> (file bukan gambar valid).</li>
+        <li><code>visual_engine</code>: engine yang benar-benar dipakai untuk gambar itu (<code>yolo</code>|<code>clip</code>|<code>mobilenetv3</code>).</li>
+        <li><code>yolo_violative</code>: <code>true</code> = kelas violative + conf &ge; ambang (visual sudah memutuskan DIMODERASI).</li>
+        <li>Query <code>?visual=</code> hanya berlaku untuk request itu; default server tetap dipakai bila tidak dikirim.</li>
+        <li>Engine yang belum tersedia (mis. CLIP tanpa <code>transformers</code>) &rarr; HTTP 400.</li>
+      </ul>
+    </div>
+  </details>
+
   <footer>Sistem moderasi gambar otomatis</footer>
 </main>
 
