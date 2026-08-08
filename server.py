@@ -17,7 +17,7 @@ ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"}
 MAX_WORKERS = 4
 
 app = FastAPI(
-    title="Sistem Moderasi Gambar Otomatis - Portal SatuData",
+    title="Sistem Moderasi Gambar Otomatis",
     description="Moderasi gambar via YOLO11 (klasifikasi) + Tesseract OCR + keyword filtering. "
                 "Keputusan: LOLOS / DIMODERASI.",
     version="1.0.0",
@@ -133,15 +133,15 @@ def get_keywords():
 
 @app.get("/health")
 def health():
-    get_model()
-    return {"status": "ok", "model": "yolo11n-cls-mod-v3", "kelas": ["boraks", "normal", "obat_aborsi"]}
+    m = get_model()
+    return {"status": "ok", "model": os.path.basename(m.model.pt_path or "best.pt"), "kelas": list(m.names.values())}
 
 
 def main():
     import argparse
-    ap = argparse.ArgumentParser(description="Web Server Moderasi Gambar - Portal SatuData")
+    ap = argparse.ArgumentParser(description="Web Server Moderasi Gambar Otomatis")
     ap.add_argument("--host", default="127.0.0.1")
-    ap.add_argument("--port", type=int, default=8000)
+    ap.add_argument("--port", type=int, default=8787)
     ap.add_argument("--model", default=None, help="Path model YOLO (override default)")
     args = ap.parse_args()
 

@@ -1,6 +1,6 @@
 # ============================================
 # Blacklist keyword untuk Sistem Moderasi Gambar
-# Portal SatuData - YOLOv11 + Tesseract + Keyword Filtering
+# YOLOv11 + Tesseract + Keyword Filtering
 # ============================================
 
 # Keyword terkait obat aborsi / penggugur kandungan (iklan ilegal)

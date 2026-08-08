@@ -1,0 +1,16 @@
+[Unit]
+Description=Moderasi Gambar Otomatis (FastAPI + YOLO11 + Tesseract)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/moderasi
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/moderasi/.venv/bin/uvicorn server:app --host 0.0.0.0 --port 8787 --workers 1
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

@@ -9,7 +9,6 @@ SEED = 42
 
 SOURCES = {
     "obat_aborsi": r"C:\Users\sulta\Desktop\dataset_obat_aborsi_google",
-    "boraks": r"C:\Users\sulta\Desktop\dataset_boraks",
     "normal": r"C:\Users\sulta\Desktop\dataset_normal",
 }
 

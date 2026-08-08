@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+import shutil
 import argparse
 import json
 
@@ -10,25 +11,49 @@ from ultralytics import YOLO
 
 from keywords import KEYWORDS_ALL
 
-TESSERACT_CMD = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+TESSERACT_CMD_WIN = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 BASE = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_MODEL = os.path.join(BASE, "runs", "yolo11n-cls-mod-v3", "weights", "best.pt")
+DEFAULT_MODEL = os.path.join(BASE, "models", "best.pt")
+FALLBACK_MODEL = os.path.join(BASE, "runs", "yolo11n-cls-mod-v3", "weights", "best.pt")
 
-KELAS_VIOLATIVE = ["obat_aborsi", "boraks"]
+KELAS_VIOLATIVE = ["obat_aborsi"]
+
+def setup_tesseract():
+    if os.path.isfile(TESSERACT_CMD_WIN):
+        pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD_WIN
+        return
+    exe = shutil.which("tesseract")
+    pytesseract.pytesseract.tesseract_cmd = exe or "tesseract"
 
 def load_model(path=None):
     model_path = path or os.environ.get("MODERASI_MODEL") or DEFAULT_MODEL
+    if not os.path.isfile(model_path) and os.path.isfile(FALLBACK_MODEL):
+        model_path = FALLBACK_MODEL
     if not os.path.isfile(model_path):
         print(f"[ERROR] Model tidak ditemukan: {model_path}")
         sys.exit(1)
-    pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD
+    setup_tesseract()
     return YOLO(model_path)
+
+
+MAX_OCR_SIZE = 1600
+OCR_CONFIG = "--oem 1 --psm 3"
+
+
+def _prep_ocr_image(image_path):
+    img = Image.open(image_path).convert("L")
+    w, h = img.size
+    longest = max(w, h)
+    if longest > MAX_OCR_SIZE:
+        scale = MAX_OCR_SIZE / longest
+        img = img.resize((max(1, int(w * scale)), max(1, int(h * scale))), Image.LANCZOS)
+    return img
 
 
 def ocr_text(image_path, lang="ind+eng"):
     try:
-        img = Image.open(image_path)
-        txt = pytesseract.image_to_string(img, lang=lang)
+        img = _prep_ocr_image(image_path)
+        txt = pytesseract.image_to_string(img, lang=lang, config=OCR_CONFIG)
         return txt.strip()
     except Exception as e:
         print(f"[WARN] OCR gagal: {e}")
@@ -102,7 +127,7 @@ def moderasi_satu_gambar(model, image_path, lang="ind+eng"):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Sistem Moderasi Gambar Otomatis - Portal SatuData")
+    ap = argparse.ArgumentParser(description="Sistem Moderasi Gambar Otomatis")
     ap.add_argument("input", nargs="+", help="Path gambar atau folder")
     ap.add_argument("--model", default=None, help="Path model YOLO (default: best.pt dari training)")
     ap.add_argument("--lang", default="ind+eng", help="Bahasa OCR Tesseract (default: ind+eng)")

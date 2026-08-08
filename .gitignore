@@ -17,14 +17,16 @@ ENV/
 
 # ===== Dataset & model weights (besar, bisa diunduh/dibuat ulang) =====
 dataset/
+dataset_*/
 runs/
-yolo11n-cls.pt
+models/
+*.pt
 *.onnx
 *_openvino_model/
 
 # ===== Log & hasil benchmark =====
 *.log
-train_v3_log.txt
+train_v*_log.txt
 benchmark_offline.txt
 benchmark_http.txt
 analisis_*.txt

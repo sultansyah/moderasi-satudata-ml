@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Moderasi Gambar Otomatis - Portal SatuData</title>
+<title>Moderasi Gambar Otomatis</title>
 <style>
   :root {
     --bg: #0f172a; --card: #1e293b; --border: #334155; --text: #e2e8f0;
@@ -27,28 +27,30 @@
   #proses { background: var(--red); color: #fff; padding: .8rem 2.4rem; font-size: 1.05rem; }
   #proses:hover { filter: brightness(1.1); }
   #proses:disabled { color: #fff; }
-  .loading { display: none; margin-top: 1rem; }
+  .loading { display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(2,6,23,.72); backdrop-filter: blur(2px); cursor: wait; }
   .loading.visible { display: block; }
-  .fly-zone { position: relative; height: 140px; border: 1px dashed var(--border); border-radius: 12px; overflow: hidden; background: var(--bg); }
-  .fly { position: absolute; left: 50%; top: 50%; width: 28px; height: 28px; margin: -14px 0 0 -14px; animation: buzz 1.8s ease-in-out infinite; }
-  .fly .body { position: absolute; left: 8px; top: 12px; width: 12px; height: 10px; background: #0f172a; border-radius: 55% 45% 50% 50%; box-shadow: inset 0 0 0 1px #334155; }
-  .fly .body::before, .fly .body::after { content: ''; position: absolute; top: -1px; width: 4px; height: 4px; background: var(--red); border-radius: 50%; }
-  .fly .body::before { left: -2px; } .fly .body::after { right: -2px; }
-  .fly .wing { position: absolute; top: 7px; width: 13px; height: 8px; background: rgba(148,163,184,.35); border-radius: 60% 40% 60% 40%; }
-  .fly .wing.w1 { left: -2px; transform-origin: right center; animation: flap .1s linear infinite; }
-  .fly .wing.w2 { right: -2px; transform-origin: left center; animation: flap .1s linear infinite reverse; }
-  .loading-txt { text-align: center; margin-top: .6rem; font-size: .9rem; color: var(--muted); }
+  .fly { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; margin: -22px 0 0 -22px; animation: buzz 6s ease-in-out infinite; }
+  .fly .body { position: absolute; left: 12px; top: 18px; width: 20px; height: 16px; background: #eab308; border-radius: 55% 45% 50% 50%; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(0,0,0,.35); }
+  .fly .body::before { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 3px, #1f2937 3px 6px); }
+  .fly .body::after { content: ''; position: absolute; right: 0; top: 50%; width: 3px; height: 3px; background: #0f172a; border-radius: 50%; }
+  .fly .head { position: absolute; left: 13px; top: 13px; width: 9px; height: 9px; background: #1f2937; border-radius: 50%; }
+  .fly .head::before, .fly .head::after { content: ''; position: absolute; top: -4px; width: 1.5px; height: 5px; background: #1f2937; border-radius: 2px; }
+  .fly .head::before { left: 1px; transform: rotate(-15deg); } .fly .head::after { right: 1px; transform: rotate(15deg); }
+  .fly .wing { position: absolute; top: 12px; width: 21px; height: 13px; background: rgba(255,255,255,.45); border: 1px solid rgba(255,255,255,.5); border-radius: 60% 40% 60% 40%; }
+  .fly .wing.w1 { left: -4px; transform-origin: right center; animation: flap .08s linear infinite; }
+  .fly .wing.w2 { right: -4px; transform-origin: left center; animation: flap .08s linear infinite reverse; }
+  .loading-txt { position: absolute; left: 50%; bottom: 12%; transform: translateX(-50%); text-align: center; font-size: 1.05rem; color: #fff; text-shadow: 0 1px 6px rgba(0,0,0,.7); }
   @keyframes buzz {
     0%   { transform: translate(0,0) rotate(0deg); }
-    10%  { transform: translate(55px,-40px) rotate(28deg); }
-    20%  { transform: translate(-45px,-65px) rotate(-22deg); }
-    30%  { transform: translate(30px,15px) rotate(40deg); }
-    40%  { transform: translate(-65px,35px) rotate(-30deg); }
-    50%  { transform: translate(45px,55px) rotate(18deg); }
-    60%  { transform: translate(-25px,-50px) rotate(-40deg); }
-    70%  { transform: translate(40px,-15px) rotate(24deg); }
-    80%  { transform: translate(-55px,50px) rotate(-26deg); }
-    90%  { transform: translate(25px,-35px) rotate(34deg); }
+    10%  { transform: translate(42vw,-38vh) rotate(26deg); }
+    20%  { transform: translate(-38vw,-45vh) rotate(-24deg); }
+    30%  { transform: translate(28vw,18vh) rotate(40deg); }
+    40%  { transform: translate(-44vw,28vh) rotate(-32deg); }
+    50%  { transform: translate(30vw,40vh) rotate(18deg); }
+    60%  { transform: translate(-22vw,-42vh) rotate(-42deg); }
+    70%  { transform: translate(36vw,-12vh) rotate(24deg); }
+    80%  { transform: translate(-40vw,36vh) rotate(-28deg); }
+    90%  { transform: translate(18vw,-26vh) rotate(34deg); }
     100% { transform: translate(0,0) rotate(0deg); }
   }
   @keyframes flap { 0%,100% { transform: rotate(0deg) scaleY(1); } 50% { transform: rotate(0deg) scaleY(.12); } }
@@ -98,13 +100,13 @@
 <div class="wrap">
 
 <header>
-  <h1>🛡️ Sistem Moderasi Gambar Otomatis — Portal SatuData</h1>
+  <h1>Sistem Moderasi Gambar Otomatis</h1>
   <p>YOLOv11 + Tesseract OCR + Keyword Filtering · Keputusan: <b style="color:var(--green)">LOLOS</b> / <b style="color:var(--red)">DIMODERASI</b></p>
 </header>
 
 <!-- ===== 1. MODERASI ===== -->
 <div class="card">
-  <h2><span class="num">1</span> Moderasi Gambar</h2>
+  <h2>Moderasi Gambar</h2>
   <div class="dropzone" id="dz">
     <p>Klik untuk pilih, atau tarik-dan-lepas gambar di sini<br>
        <span class="muted" style="font-size:.85rem">Bisa 1 file atau banyak sekaligus (satu per satu / bulk)</span></p>
@@ -117,12 +119,29 @@
   </div>
   <div class="progress" id="progress">Masih menunggu pilihan gambar...</div>
   <div class="loading" id="loading">
-    <div class="fly-zone">
-      <div class="fly">
-        <span class="wing w1"></span>
-        <span class="wing w2"></span>
-        <span class="body"></span>
-      </div>
+    <div class="fly">
+      <span class="wing w1"></span>
+      <span class="wing w2"></span>
+      <span class="head"></span>
+      <span class="body"></span>
+    </div>
+    <div class="fly" style="animation-delay:-4s; animation-duration:7.5s;">
+      <span class="wing w1"></span>
+      <span class="wing w2"></span>
+      <span class="head"></span>
+      <span class="body"></span>
+    </div>
+    <div class="fly" style="animation-delay:-1.6s; animation-duration:6.8s; transform:scale(.8);">
+      <span class="wing w1"></span>
+      <span class="wing w2"></span>
+      <span class="head"></span>
+      <span class="body"></span>
+    </div>
+    <div class="fly" style="animation-delay:-5s; animation-duration:8s; transform:scale(1.15);">
+      <span class="wing w1"></span>
+      <span class="wing w2"></span>
+      <span class="head"></span>
+      <span class="body"></span>
     </div>
     <div class="loading-txt" id="loading-txt">Memproses...</div>
   </div>
@@ -131,7 +150,7 @@
 
 <!-- ===== 2. KATA KUNCI ===== -->
 <div class="card">
-  <h2><span class="num">2</span> Daftar Kata Kunci Blacklist (<span id="kw-total">45</span>)</h2>
+  <h2>Daftar Kata Kunci Blacklist (<span id="kw-total">48</span>)</h2>
   <div class="muted" style="font-size:.85rem; margin-bottom:1rem">
     Dicocokkan ke teks hasil OCR (dan nama file sebagai fallback). Jika ada yang cocok → gambar langsung <b style="color:var(--red)">DIMODERASI</b>.
   </div>
@@ -142,19 +161,19 @@
 
 <!-- ===== 3. ARSITEKTUR ===== -->
 <div class="card">
-  <h2><span class="num">3</span> Arsitektur Sistem</h2>
+  <h2>Arsitektur Sistem</h2>
   <div class="flow">
     <div class="node">Input Gambar</div><div class="arrow">→</div>
     <div class="node">YOLO11-cls<br><span class="muted" style="font-size:.72rem">deteksi visual</span></div><div class="arrow">→</div>
     <div class="node">Tesseract OCR<br><span class="muted" style="font-size:.72rem">ekstrak teks</span></div><div class="arrow">→</div>
-    <div class="node">Keyword Filter<br><span class="muted" style="font-size:.72rem">45 kata kunci</span></div><div class="arrow">→</div>
+    <div class="node">Keyword Filter<br><span class="muted" style="font-size:.72rem">48 kata kunci</span></div><div class="arrow">→</div>
     <div class="node vio">DIMODERASI</div>
   </div>
   <div class="flow"><div class="arrow" style="text-align:center">└ hasil negatif →</div><div class="node ok">LOLOS</div></div>
 
   <div class="arch-item"><div class="step">1</div><div>
     <h3>YOLO11n-cls — Deteksi Visual</h3>
-    <p>Klasifikasi gambar ke 3 kelas: <code>obat_aborsi</code>, <code>boraks</code>, <code>normal</code>.
+    <p>Klasifikasi gambar ke 2 kelas: <code>obat_aborsi</code>, <code>normal</code>.
        Kecepatan ~37 ms/gambar (26.7 img/s). Jika terdeteksi kelas violative → langsung <b style="color:var(--red)">DIMODERASI</b>.</p>
   </div></div>
   <div class="arch-item"><div class="step">2</div><div>
@@ -164,7 +183,7 @@
   </div></div>
   <div class="arch-item"><div class="step">3</div><div>
     <h3>Keyword Filtering — Pencocokan Kata Kunci</h3>
-    <p>Mencocokkan teks hasil OCR terhadap <b>45 keyword blacklist</b> (aborsi, cytotec, misoprostol, boraks, formalin, dsb).
+    <p>Mencocokkan teks hasil OCR terhadap <b>48 keyword blacklist</b> (aborsi, cytotec, misoprostol, boraks, formalin, dsb).
        Teks dinormalisasi dulu (huruf kecil, buang simbol). Nama file dipakai sebagai fallback bila OCR kosong. Instan (&lt; 1 ms).</p>
   </div></div>
   <div class="arch-item"><div class="step">4</div><div>
@@ -181,7 +200,22 @@
 
 <!-- ===== 4. MODEL ===== -->
 <div class="card">
-  <h2><span class="num">4</span> Penjelasan Model</h2>
+  <h2>Penjelasan Model</h2>
+
+  <h3 style="color:#fff; margin-bottom:.6rem">Berapa Kelasnya? — <b style="color:var(--blue)">2 Kelas</b></h3>
+  <p class="muted" style="font-size:.92rem; margin-bottom:.8rem">
+    Model dilatih untuk mengklasifikasikan setiap gambar ke salah satu dari <b>2 kelas</b>:
+  </p>
+  <table class="metrics" style="margin-bottom:1rem">
+    <tr><th>#</th><th>Kelas</th><th>Makna</th><th>Aksi</th></tr>
+    <tr><td>1</td><td><code>obat_aborsi</code></td><td class="muted">Gambar iklan/produk obat penggugur kandungan (cytotec, misoprostol, dsb.)</td><td><span class="badge dimoderasi">DIMODERASI</span></td></tr>
+    <tr><td>2</td><td><code>normal</code></td><td class="muted">Gambar biasa yang aman (makanan, dokumen, hewan, mobil, dsb.)</td><td><span class="badge lolos">LOLOS</span></td></tr>
+  </table>
+  <p class="muted" style="font-size:.85rem">
+    Kelas <code>obat_aborsi</code> disebut <b>kelas violative</b> — jika model memprediksinya, gambar langsung
+    <b style="color:var(--red)">DIMODERASI</b>. OCR + keyword tetap dijalankan sebagai lapisan kedua untuk menangkap konten yang lolos dari visual
+    (mis. teks iklan di gambar yang dikira <code>normal</code>), dan keputusan <b style="color:var(--red)">DIMODERASI</b> otomatis jika ada keyword yang cocok.
+  </p>
 
   <h3 style="color:#fff; margin-bottom:.6rem">Apa itu YOLO11n-cls?</h3>
   <p class="muted" style="font-size:.92rem; margin-bottom:1rem">
@@ -192,36 +226,33 @@
   <h3 style="color:#fff; margin-bottom:.6rem">Data Training</h3>
   <table class="metrics" style="margin-bottom:1rem">
     <tr><th>Kelas</th><th style="text-align:right">Train</th><th style="text-align:right">Val</th><th>Asal data</th></tr>
-    <tr><td>obat_aborsi</td><td style="text-align:right">195</td><td style="text-align:right">59</td><td class="muted">Scrape Google Images</td></tr>
-    <tr><td>boraks</td><td style="text-align:right">176</td><td style="text-align:right">43</td><td class="muted">Scrape Google Images</td></tr>
-    <tr><td>normal</td><td style="text-align:right">240</td><td style="text-align:right">47</td><td class="muted">Makanan, dokumen, hewan, mobil, dsb.</td></tr>
+    <tr><td>obat_aborsi</td><td style="text-align:right">240</td><td style="text-align:right">59</td><td class="muted">Scrape Google Images</td></tr>
+    <tr><td>normal</td><td style="text-align:right">195</td><td style="text-align:right">48</td><td class="muted">Makanan, dokumen, hewan, mobil, dsb.</td></tr>
   </table>
   <ul class="clean">
-    <li>Total <b>611 gambar train</b> + <b>149 gambar val</b> (split otomatis).</li>
-    <li>Training: 14 epoch, batch 32, ukuran input 224×224, CPU-only, ± 11 menit (early stop di epoch 2 karena akurasi puncak).</li>
+    <li>Total <b>435 gambar train</b> + <b>107 gambar val</b> (split otomatis).</li>
+    <li>Training: 14 epoch, batch 32, ukuran input 224×224, CPU-only (early stop di epoch 2 karena akurasi puncak).</li>
   </ul>
 
   <h3 style="color:#fff; margin:.6rem 0">Metrik Kinerja</h3>
   <table class="metrics" style="margin-bottom:1rem">
     <tr><th>Metrik</th><th style="text-align:right">Nilai</th><th style="text-align:right">Keterangan</th></tr>
-    <tr><td>Top-1 Accuracy (val)</td><td style="text-align:right">84.6%</td><td style="text-align:right" class="muted">tebakan 1 teratas benar</td></tr>
+    <tr><td>Top-1 Accuracy (val)</td><td style="text-align:right">95.3%</td><td style="text-align:right" class="muted">tebakan 1 teratas benar</td></tr>
     <tr><td>Top-5 Accuracy (val)</td><td style="text-align:right">100%</td><td style="text-align:right" class="muted">kelas benar ada di 5 besar</td></tr>
-    <tr><td>Recall moderasi</td><td style="text-align:right">95.1%</td><td style="text-align:right" class="muted">gambar ilegal yang berhasil diblokir</td></tr>
-    <tr><td>Precision moderasi</td><td style="text-align:right">90.7%</td><td style="text-align:right" class="muted">gambar yang ditandai memang ilegal</td></tr>
+    <tr><td>Recall moderasi</td><td style="text-align:right">94.9%</td><td style="text-align:right" class="muted">gambar ilegal yang berhasil diblokir</td></tr>
+    <tr><td>Precision moderasi</td><td style="text-align:right">93.8%</td><td style="text-align:right" class="muted">gambar yang ditandai memang ilegal</td></tr>
   </table>
 
   <h3 style="color:#fff; margin:.6rem 0">Kinerja per Kelas (F1-score)</h3>
   <table class="metrics" style="margin-bottom:1rem">
     <tr><th>Kelas</th><th style="text-align:right">Precision</th><th style="text-align:right">Recall</th><th style="text-align:right">F1</th></tr>
-    <tr><td>obat_aborsi</td><td style="text-align:right">0.944</td><td style="text-align:right">0.864</td><td style="text-align:right">0.903</td></tr>
-    <tr><td>normal</td><td style="text-align:right">0.881</td><td style="text-align:right">0.787</td><td style="text-align:right">0.831</td></tr>
-    <tr><td>boraks</td><td style="text-align:right">0.717</td><td style="text-align:right">0.884</td><td style="text-align:right">0.792</td></tr>
+    <tr><td>obat_aborsi</td><td style="text-align:right">0.949</td><td style="text-align:right">0.949</td><td style="text-align:right">0.949</td></tr>
+    <tr><td>normal</td><td style="text-align:right">0.938</td><td style="text-align:right">0.938</td><td style="text-align:right">0.938</td></tr>
   </table>
 
   <h3 style="color:#fff; margin:.6rem 0">Keterbatasan &amp; Catatan</h3>
   <ul class="clean">
-    <li><b>Boraks paling sulit</b> — bubuk/kristal putih sering tertukar dengan benda putih biasa (mis. makanan sehat). F1 terendah: 0.79.</li>
-    <li><b>False positive normal</b>: ±10 dari 47 gambar normal ditandai DIMODERASI (sengaja lebih agresif agar konten ilegal tidak lolos).</li>
+    <li><b>False positive normal</b>: ±3 dari 48 gambar normal ditandai DIMODERASI (sengaja lebih agresif agar konten ilegal tidak lolos).</li>
     <li><b>Bottleneck OCR</b>: ~550 ms/gambar; YOLO hanya 37 ms. Kalau hanya dijalankan saat YOLO = normal, kecepatan naik drastis.</li>
     <li>Dataset kecil &amp; noisy (scrape). Akurasi bisa naik dengan data lebih banyak, augmentasi, atau GPU untuk training lebih lama.</li>
   </ul>

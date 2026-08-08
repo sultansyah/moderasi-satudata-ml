@@ -13,9 +13,9 @@ BATCH = 32
 PATIENCE = 12
 WORKERS = 0
 CACHE = "ram"
-NAME = "yolo11n-cls-mod-v3"
+NAME = "yolo11n-cls-mod-v4"
 
-print("=== Training YOLO11-cls (3 kelas: obat_aborsi / boraks / normal) ===")
+print("=== Training YOLO11-cls (2 kelas: obat_aborsi / normal) ===")
 print(f"  dataset : {DATASET}")
 print(f"  model   : {MODEL}")
 print(f"  epochs  : {EPOCHS}  batch: {BATCH}  imgsz: {IMGSZ}")
