@@ -227,7 +227,7 @@
     <div class="brand-mark" aria-hidden="true">&#9888;</div>
     <div>
       <h1>Moderasi Gambar Otomatis</h1>
-      <div class="sub">YOLOv11 &middot; Tesseract OCR &middot; Keyword Filtering</div>
+      <div class="sub">YOLO &middot; MobileNetV3 &middot; CLIP &middot; Tesseract OCR &middot; Keyword Filtering</div>
     </div>
   </div>
 </header>
@@ -306,9 +306,9 @@
       <div class="flow">
         <div class="fnode">Input Gambar</div>
         <div class="farrow">&#9660;</div>
-        <div class="fnode">YOLO11-cls<small>deteksi visual</small></div>
+        <div class="fnode">Engine Visual<small>YOLO &middot; MobileNetV3 &middot; CLIP</small></div>
         <div class="farrow">&#9660;</div>
-        <span class="fd"><span class="fd-in"><span class="fd-txt">Violative?<small>kelas obat_aborsi</small></span></span></span>
+        <span class="fd"><span class="fd-in"><span class="fd-txt">Violative?<small>kelas obat_aborsi, conf &ge; ambang</small></span></span></span>
 
         <div class="fbranch">
           <div class="fpath">
@@ -336,16 +336,22 @@
           </div>
         </div>
       </div>
-      <h3>1. YOLO11n-cls — Deteksi Visual</h3>
-      <p>Klasifikasi ke 2 kelas: <code>obat_aborsi</code> dan <code>normal</code>. Kecepatan &plusmn;37 ms/gambar (26.7 img/s). Jika terdeteksi kelas violative &rarr; langsung DIMODERASI dan proses berhenti (OCR tidak dijalankan).</p>
+      <h3>1. Engine Visual — Klasifikasi Gambar</h3>
+      <p>Tiga engine bisa dipilih dari dropdown <b>Engine visual</b> atau API (<code>?visual=...</code>):</p>
+      <ul>
+        <li><code>yolo</code> &mdash; YOLO11n-cls, bobot 3.2 MB, &plusmn;37 ms/gambar (tercepat).</li>
+        <li><code>mobilenetv3</code> &mdash; MobileNetV3-Large, bobot &plusmn;16 MB, fine-tune 3 kelas di Google Colab (val_acc 0.85).</li>
+        <li><code>clip</code> &mdash; CLIP ViT-B/32 zero-shot, bobot &plusmn;580 MB, tanpa training, paling tahan terhadap gambar di luar dataset (logo, iklan unik).</li>
+      </ul>
+      <p>Klasifikasi ke 3 kelas: <code>obat_aborsi</code> (violative), <code>normal</code>, <code>dokumen</code>. Jika kelas violative terprediksi dengan konfidensi &ge; <code>VIOL_CONF_THRESHOLD</code> (default 0.70) &rarr; langsung DIMODERASI dan OCR dilewati. Di bawah ambang &rarr; dilanjut OCR + keyword.</p>
       <h3>2. Tesseract OCR — Ekstraksi Teks</h3>
-      <p>Dijalankan hanya bila YOLO = <code>normal</code>. Membaca teks dalam gambar (Indonesia + Inggris), menangkap nomor WhatsApp, kata kunci iklan ilegal, atau nama produk yang luput dari deteksi visual. Paling lambat: &plusmn;550 ms/gambar (gambar besar di-resize otomatis ke maks. 1600px).</p>
+      <p>Dijalankan bila visual tidak violative (atau violative ber-conf rendah). Membaca teks dalam gambar (Indonesia + Inggris), menangkap nomor WhatsApp, kata kunci iklan ilegal, atau nama produk yang luput dari deteksi visual. Gambar besar di-resize otomatis ke maks. 1600px.</p>
       <h3>3. Keyword Filtering — Pencocokan Kata Kunci</h3>
-      <p>Mencocokkan teks OCR dengan 48 kata kunci blacklist (aborsi, cytotec, misoprostol, boraks, formalin, dsb.). Teks dinormalisasi dulu (huruf kecil, simbol dibuang); nama file dipakai fallback bila OCR kosong. Instan (&lt; 1 ms).</p>
+      <p>Mencocokkan teks OCR dengan kata kunci blacklist (aborsi, cytotec, misoprostol, boraks, formalin, dsb.). Teks dinormalisasi dulu (huruf kecil, simbol dibuang); nama file dipakai fallback bila OCR kosong. Instan (&lt; 1 ms).</p>
       <h3>4. Keputusan Akhir</h3>
-      <p><b style="color:var(--red)">DIMODERASI</b> bila <code>YOLO = violative</code> ATAU <code>keyword match</code>. Bila keduanya negatif &rarr; <b style="color:var(--green)">LOLOS</b>.</p>
+      <p><b style="color:var(--red)">DIMODERASI</b> bila <code>visual = violative (conf &ge; ambang)</code> ATAU <code>keyword match</code>. Bila keduanya negatif &rarr; <b style="color:var(--green)">LOLOS</b>.</p>
       <h3>5. Web Server (FastAPI)</h3>
-      <p>Endpoint <code>POST /api/moderasi/satu</code> (1 gambar) dan <code>POST /api/moderasi/bulk</code> (banyak, maks. 1000, paralel 4 thread). Model dimuat sekali saat startup; respons JSON.</p>
+      <p>Endpoint <code>POST /api/moderasi/satu</code> (1 gambar) dan <code>POST /api/moderasi/bulk</code> (banyak, maks. 1000, paralel 4 thread), <code>GET /api/engines</code> (daftar engine + default), <code>POST /api/engines/default?engine=...</code> (set default). Engine bisa diatur per-request lewat <code>?visual=yolo|clip|mobilenetv3</code>. Respons JSON.</p>
     </div>
   </details>
 
@@ -353,42 +359,48 @@
   <details class="doc">
     <summary><span class="n" style="display:inline-grid;place-items:center;width:22px;height:22px;border-radius:6px;background:var(--primary-soft);color:var(--primary);font-size:.78rem;font-weight:700">4</span> Penjelasan Model <span class="chev">&#9656;</span></summary>
     <div class="body">
-      <h3>Berapa Kelasnya? — 2 Kelas</h3>
-      <p>Model mengklasifikasikan setiap gambar ke salah satu dari 2 kelas:</p>
+      <h3>Berapa Kelasnya? — 3 Kelas</h3>
+      <p>Model mengklasifikasikan setiap gambar ke salah satu dari 3 kelas:</p>
       <ul>
         <li><code>obat_aborsi</code> — gambar iklan/produk obat penggugur kandungan (cytotec, misoprostol, dsb.) &rarr; <b style="color:var(--red)">DIMODERASI</b>.</li>
-        <li><code>normal</code> — gambar biasa yang aman (makanan, dokumen, hewan, mobil, dsb.) &rarr; <b style="color:var(--green)">LOLOS</b>.</li>
+        <li><code>normal</code> — gambar biasa yang aman (makanan, hewan, logo, mobil, dsb.) &rarr; <b style="color:var(--green)">LOLOS</b>.</li>
+        <li><code>dokumen</code> — poster, sertifikat, atau dokumen resmi &rarr; <b style="color:var(--green)">LOLOS</b>.</li>
       </ul>
-      <p>Kelas <code>obat_aborsi</code> disebut <b>kelas violative</b> — jika terprediksi, gambar langsung DIMODERASI dan proses berhenti (OCR dilewati). OCR + keyword hanya berjalan saat YOLO = <code>normal</code>, untuk menangkap konten yang lolos dari deteksi visual; jika ada keyword cocok, keputusan otomatis DIMODERASI.</p>
+      <p>Kelas <code>obat_aborsi</code> disebut <b>kelas violative</b>. Perilaku: prediksi violative dengan konfidensi &ge; <code>VIOL_CONF_THRESHOLD</code> (default 0.70) &rarr; langsung DIMODERASI &amp; OCR dilewati. Di bawah ambang, gambar <b>tidak</b> langsung dihukum &mdash; dilanjut OCR + keyword (tetap DIMODERASI kalau ada kata kunci).</p>
 
-      <h3>Apa itu YOLO11n-cls?</h3>
-      <p>YOLO11 adalah keluarga model klasifikasi/deteksi modern dari Ultralytics. Varian <code>nano</code> dipilih agar ringan: <b>1.53 juta parameter</b>, 47 lapisan, &plusmn;3.2 GFLOPs, bobot hanya <b>3.2 MB</b>. Cukup untuk prototipe dan tetap cepat di CPU.</p>
+      <h3>Pilihan Engine Visual</h3>
+      <ul>
+        <li><b>YOLO11n-cls</b>: 1.53 juta parameter, bobot 3.2 MB, &plusmn;37 ms/gambar. Paling cepat, cocok untuk CPU.</li>
+        <li><b>MobileNetV3-Large</b>: transfer learning dari ImageNet, fine-tune 3 kelas di Google Colab, bobot &plusmn;16 MB, val_acc 0.85. Model aktif saat ini.</li>
+        <li><b>CLIP ViT-B/32</b>: zero-shot (tanpa training), bobot &plusmn;580 MB, paling tahan terhadap gambar di luar distribusi dataset (logo aplikasi, iklan unik). Ambang khusus: <code>CLIP_VIOL_THRESHOLD</code> (default 0.35).</li>
+      </ul>
 
       <h3>Data Training</h3>
       <ul>
-        <li><b>obat_aborsi</b>: 240 train + 59 val (scrape Google Images).</li>
-        <li><b>normal</b>: 195 train + 48 val (makanan, dokumen, hewan, mobil, dsb.).</li>
-        <li>Total 435 gambar train + 107 gambar val (split otomatis). Training 14 epoch, batch 32, input 224&times;224, CPU-only (early stop di epoch 2 karena akurasi puncak).</li>
+        <li><b>obat_aborsi</b>: 720 train + 59 val.</li>
+        <li><b>normal</b>: 585 train + 48 val.</li>
+        <li><b>dokumen</b>: 669 train + 55 val.</li>
+        <li>Total &plusmn;1.974 train + 162 val (termasuk augmentasi 2x per gambar train: crop, rotasi, flip, kecerahan).</li>
       </ul>
 
       <h3>Metrik Kinerja</h3>
       <ul>
-        <li>Top-1 Accuracy (val): <b>95.3%</b> — tebakan 1 teratas benar.</li>
-        <li>Top-5 Accuracy (val): <b>100%</b> — kelas benar ada di 5 besar.</li>
-        <li>Recall moderasi: <b>94.9%</b> — gambar ilegal yang berhasil diblokir.</li>
-        <li>Precision moderasi: <b>93.8%</b> — gambar yang ditandai memang ilegal.</li>
+        <li>MobileNetV3-Large (model aktif): val_acc <b>0.852</b>.</li>
+        <li>YOLO11n-cls v5 (alternatif): lihat log training (runs/).</li>
       </ul>
 
-      <h3>Kinerja per Kelas (F1-score)</h3>
+      <h3>Konfigurasi (env)</h3>
       <ul>
-        <li><code>obat_aborsi</code>: P 0.949 &middot; R 0.949 &middot; F1 0.949.</li>
-        <li><code>normal</code>: P 0.938 &middot; R 0.938 &middot; F1 0.938.</li>
+        <li><code>MODERASI_VISUAL</code> &mdash; engine default: <code>yolo</code> | <code>clip</code> | <code>mobilenetv3</code>.</li>
+        <li><code>VIOL_CONF_THRESHOLD</code> &mdash; ambang violative utk YOLO/MobileNetV3 (default 0.70).</li>
+        <li><code>CLIP_VIOL_THRESHOLD</code> &mdash; ambang violative utk CLIP (default 0.35).</li>
+        <li><code>MODERASI_MODEL</code> &mdash; path model YOLO alternatif.</li>
       </ul>
 
       <h3>Keterbatasan &amp; Catatan</h3>
       <ul>
-        <li><b>False positive normal</b>: &plusmn;3 dari 48 gambar normal ditandai DIMODERASI (sengaja lebih agresif agar konten ilegal tidak lolos).</li>
-        <li><b>Bottleneck OCR</b>: &plusmn;550 ms/gambar; YOLO hanya 37 ms. OCR otomatis dilewati saat YOLO violative, jadi gambar ilegal diproses hampir seketika.</li>
+        <li>Ambang 0.70 sengaja dibuat agar gambar yang ragu-ragu (mis. conf 0.68) tidak langsung DIMODERASI; di bawah ambang tetap dicek via OCR + keyword.</li>
+        <li><b>Bottleneck OCR</b>: &plusmn;550 ms/gambar; engine visual jauh lebih cepat. OCR otomatis dilewati saat visual violative.</li>
         <li>Dataset kecil &amp; noisy (scrape). Akurasi dapat naik dengan data lebih banyak, augmentasi, atau GPU.</li>
       </ul>
     </div>
