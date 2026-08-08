@@ -81,10 +81,48 @@
   .status { margin-top: .9rem; text-align: center; min-height: 1.4em; font-size: .88rem; color: var(--muted); }
   .status.err { color: var(--red); }
   .status.ok { color: var(--green); }
-  .bar { display: none; height: 4px; margin-top: .5rem; border-radius: 999px; background: var(--border); overflow: hidden; }
-  .bar.visible { display: block; }
-  .bar i { display: block; height: 100%; width: 40%; background: var(--primary); animation: slide 1.1s ease-in-out infinite; border-radius: 999px; }
   @keyframes slide { 0% { margin-left: -40%; } 100% { margin-left: 100%; } }
+
+  /* ---------- Loading overlay (bees) ---------- */
+  .overlay { display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(244,246,250,.94); }
+  .overlay.visible { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .7rem; }
+  .bees { position: relative; width: 100%; height: 60vh; max-height: 460px; overflow: hidden; }
+  .bee { position: absolute; left: 50%; top: 50%; margin: -18px 0 0 -20px; width: 40px; height: 36px; --s: 1; animation: flight 9s ease-in-out infinite; }
+  .bee:nth-child(1)  { --s: 1;    animation-delay: 0s; }
+  .bee:nth-child(2)  { --s: .85;  animation-delay: -.9s; }
+  .bee:nth-child(3)  { --s: 1.15; animation-delay: -1.8s; }
+  .bee:nth-child(4)  { --s: .75;  animation-delay: -2.7s; }
+  .bee:nth-child(5)  { --s: 1.05; animation-delay: -3.6s; }
+  .bee:nth-child(6)  { --s: .9;   animation-delay: -4.5s; }
+  .bee:nth-child(7)  { --s: 1.2;  animation-delay: -5.4s; }
+  .bee:nth-child(8)  { --s: .8;   animation-delay: -6.3s; }
+  .bee:nth-child(9)  { --s: 1.1;  animation-delay: -7.2s; }
+  .bee:nth-child(10) { --s: .95;  animation-delay: -8.1s; }
+  .bee .body { position: absolute; left: 11px; top: 9px; width: 18px; height: 14px; background: #fbbf24; border-radius: 50%; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(0,0,0,.32); }
+  .bee .body::before { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 3px, #111827 3px 6px); }
+  .bee .body::after { content: ''; position: absolute; right: 2px; top: 4px; width: 2px; height: 2px; background: #111827; border-radius: 50%; }
+  .bee .head { position: absolute; left: 11px; top: 5px; width: 9px; height: 9px; background: #111827; border-radius: 50%; }
+  .bee .head::before, .bee .head::after { content: ''; position: absolute; top: -3px; width: 1.5px; height: 4px; background: #111827; border-radius: 2px; }
+  .bee .head::before { left: 1px; transform: rotate(-15deg); }
+  .bee .head::after { right: 1px; transform: rotate(15deg); }
+  .bee .wing { position: absolute; top: 6px; width: 19px; height: 12px; background: rgba(255,255,255,.55); border: 1px solid rgba(255,255,255,.6); border-radius: 60% 40% 60% 40%; }
+  .bee .wing.w1 { left: -2px; transform-origin: right center; animation: flap .1s linear infinite; }
+  .bee .wing.w2 { right: -2px; transform-origin: left center; animation: flap .1s linear infinite reverse; }
+  .omessage { font-size: .95rem; font-weight: 600; color: var(--ink); }
+  .obar { width: 240px; height: 4px; border-radius: 999px; background: var(--border); overflow: hidden; }
+  .obar i { display: block; height: 100%; width: 40%; background: var(--primary); animation: slide 1.1s ease-in-out infinite; border-radius: 999px; }
+  @keyframes flap { 0%,100% { transform: rotate(0deg) scaleY(1); } 50% { transform: rotate(0deg) scaleY(.12); } }
+  @keyframes flight {
+    0%   { transform: translate(0,0) rotate(0deg) scale(var(--s)); }
+    10%  { transform: translate(14vw,-9vh) rotate(9deg) scale(var(--s)); }
+    22%  { transform: translate(-12vw,-13vh) rotate(-7deg) scale(var(--s)); }
+    34%  { transform: translate(9vw,5vh) rotate(11deg) scale(var(--s)); }
+    46%  { transform: translate(-14vw,10vh) rotate(-9deg) scale(var(--s)); }
+    58%  { transform: translate(7vw,13vh) rotate(7deg) scale(var(--s)); }
+    70%  { transform: translate(-10vw,3vh) rotate(-8deg) scale(var(--s)); }
+    82%  { transform: translate(12vw,-6vh) rotate(6deg) scale(var(--s)); }
+    100% { transform: translate(0,0) rotate(0deg) scale(var(--s)); }
+  }
 
   /* ---------- Results ---------- */
   .result { margin-top: 1.4rem; }
@@ -110,6 +148,7 @@
   .badge.error { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-bd); }
   .kw { display: inline-block; background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-bd); border-radius: 4px; padding: 0 .35rem; margin: .1rem .2rem 0 0; font-size: .72rem; }
   .alasan { color: var(--muted); font-size: .78rem; }
+  td .tthumb { width: 46px; height: 46px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); cursor: zoom-in; background: #f9fafb; display: block; }
   .muted { color: var(--muted); }
   .tac { text-align: right; }
 
@@ -156,6 +195,19 @@
   @media (max-width: 640px) { .fnode { min-width: 130px; padding: .45rem .7rem; } .fbranch { gap: .9rem; } .fd-in { padding: 1rem 1.3rem; } }
 
   footer { text-align: center; color: var(--muted); font-size: .8rem; margin-top: 2rem; }
+
+  /* ---------- Lightbox ---------- */
+  .lightbox { display: none; position: fixed; inset: 0; z-index: 1100; background: rgba(8,14,26,.88); }
+  .lightbox.visible { display: block; }
+  .lb-img { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); max-width: 90vw; max-height: 82vh; border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,.5); }
+  .lb-cap { position: absolute; left: 50%; bottom: 2.2rem; transform: translateX(-50%); color: #e2e8f0; font-size: .88rem; text-align: center; max-width: 80vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lb-cap b { font-variant-numeric: tabular-nums; }
+  .lb-btn { position: absolute; background: rgba(255,255,255,.12); color: #fff; border: 1px solid rgba(255,255,255,.25); border-radius: 50%; width: 44px; height: 44px; font-size: 1.2rem; line-height: 1; cursor: pointer; z-index: 2; display: grid; place-items: center; }
+  .lb-btn:hover { background: rgba(255,255,255,.25); }
+  .lb-close { top: 1rem; right: 1rem; }
+  .lb-prev { left: 1rem; top: 50%; transform: translateY(-50%); }
+  .lb-next { right: 1rem; top: 50%; transform: translateY(-50%); }
+  @media (max-width: 640px) { .lb-prev { left: .4rem; } .lb-next { right: .4rem; } }
 
   @media (max-width: 640px) {
     .summary { grid-template-columns: repeat(2, 1fr); }
@@ -205,7 +257,23 @@
     </div>
 
     <div class="status" id="status" role="status" aria-live="polite"></div>
-    <div class="bar" id="bar"><i></i></div>
+
+    <div class="overlay" id="overlay" aria-hidden="true">
+      <div class="bees">
+        <span class="bee"><span class="wing w1"></span><span class="wing w2"></span><span class="head"></span><span class="body"></span></span>
+        <span class="bee"><span class="wing w1"></span><span class="wing w2"></span><span class="head"></span><span class="body"></span></span>
+        <span class="bee"><span class="wing w1"></span><span class="wing w2"></span><span class="head"></span><span class="body"></span></span>
+        <span class="bee"><span class="wing w1"></span><span class="wing w2"></span><span class="head"></span><span class="body"></span></span>
+        <span class="bee"><span class="wing w1"></span><span class="wing w2"></span><span class="head"></span><span class="body"></span></span>
+        <span class="bee"><span class="wing w1"></span><span class="wing w2"></span><span class="head"></span><span class="body"></span></span>
+        <span class="bee"><span class="wing w1"></span><span class="wing w2"></span><span class="head"></span><span class="body"></span></span>
+        <span class="bee"><span class="wing w1"></span><span class="wing w2"></span><span class="head"></span><span class="body"></span></span>
+        <span class="bee"><span class="wing w1"></span><span class="wing w2"></span><span class="head"></span><span class="body"></span></span>
+        <span class="bee"><span class="wing w1"></span><span class="wing w2"></span><span class="head"></span><span class="body"></span></span>
+      </div>
+      <div class="omessage" id="omessage">Memproses...</div>
+      <div class="obar"><i></i></div>
+    </div>
 
     <div class="result" id="result" hidden></div>
   </section>
@@ -320,6 +388,14 @@
   <footer>Sistem moderasi gambar otomatis</footer>
 </main>
 
+<div class="lightbox" id="lightbox" aria-hidden="true">
+  <button class="lb-btn lb-close" id="lb-close" type="button" aria-label="Tutup">&times;</button>
+  <button class="lb-btn lb-prev" id="lb-prev" type="button" aria-label="Sebelumnya">&#10094;</button>
+  <img class="lb-img" id="lb-img" src="" alt="">
+  <button class="lb-btn lb-next" id="lb-next" type="button" aria-label="Berikutnya">&#10095;</button>
+  <div class="lb-cap" id="lb-cap"></div>
+</div>
+
 <script>
 (function () {
   const dz = document.getElementById("dz");
@@ -329,16 +405,21 @@
   const qcount = document.getElementById("qcount");
   const qnote = document.getElementById("qnote");
   const status = document.getElementById("status");
-  const bar = document.getElementById("bar");
+  const overlay = document.getElementById("overlay");
+  const omessage = document.getElementById("omessage");
   const resultBox = document.getElementById("result");
   const prosesBtn = document.getElementById("proses");
   const clearBtn = document.getElementById("clear");
+  const lightbox = document.getElementById("lightbox");
+  const lbImg = document.getElementById("lb-img");
+  const lbCap = document.getElementById("lb-cap");
 
   const MAX_FILES = 1000;
   let items = [];           // { id, file, url, valid }
   let lastResults = [];     // { ...item, status badge class }
   let lastSummary = null;
   let filter = "semua";
+  let gallery = [];         // [{ url, filename, keputusan, cls }] untuk lightbox
 
   function uid() { return (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36)); }
   function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
@@ -364,7 +445,7 @@
     }
     if (added) {
       setStatus("");
-      bar.classList.remove("visible");
+      overlay.classList.remove("visible");
       renderQueue();
       updateActions();
     }
@@ -422,8 +503,9 @@
     if (!valid.length) return;
     prosesBtn.disabled = true;
     clearBtn.disabled = true;
-    bar.classList.add("visible");
-    setStatus("Mengunggah " + valid.length + " gambar...");
+    setStatus("");
+    overlay.classList.add("visible");
+    omessage.textContent = "Memproses " + valid.length + " gambar... mohon tunggu.";
     resultBox.hidden = true;
     resultBox.innerHTML = "";
 
@@ -441,7 +523,7 @@
     } catch (err) {
       setStatus("Gagal memproses: " + err.message + ". Periksa apakah server berjalan.", "err");
     } finally {
-      bar.classList.remove("visible");
+      overlay.classList.remove("visible");
       prosesBtn.disabled = false;
       clearBtn.disabled = false;
     }
@@ -451,9 +533,11 @@
   function renderResults(j) {
     const s = j.ringkasan || {};
     lastSummary = s;
+    const urlMap = {};
+    items.filter(x => x.valid).forEach(x => { urlMap[x.file.name] = urlMap[x.file.name] || x.url; });
     lastResults = (j.results || []).map(it => {
       const cls = it.keputusan === "LOLOS" ? "lolos" : (it.keputusan === "DIMODERASI" ? "dimoderasi" : "error");
-      return { ...it, _cls: cls };
+      return { ...it, _cls: cls, _url: urlMap[it.filename] || "" };
     });
     filter = "semua";
     resultBox.hidden = false;
@@ -468,6 +552,7 @@
     const pill = (key, label) =>
       `<button class="f${filter === key ? " on" : ""}" type="button" data-f="${key}">${label} <b>${counts[key]}</b></button>`;
     const rows = lastResults.filter(r => filter === "semua" || r._cls === filter);
+    gallery = rows.map(r => ({ url: r._url, filename: r.filename, keputusan: r.keputusan, cls: r._cls }));
 
     let html = `<div class="summary">
       <div class="sum-card lolos"><b>${s.lolos}</b><span>LOLOS</span></div>
@@ -479,26 +564,66 @@
     html += `<div class="filters">${pill("semua", "Semua")}${pill("lolos", "Lolos")}${pill("dimoderasi", "Dimoderasi")}${pill("error", "Error")}</div>`;
 
     html += `<div class="table-wrap"><table>
-      <thead><tr><th scope="col">File</th><th scope="col">Status</th><th scope="col">YOLO</th><th scope="col">Keyword</th><th scope="col">Alasan</th></tr></thead>
+      <thead><tr><th scope="col">Gambar</th><th scope="col">File</th><th scope="col">Status</th><th scope="col">YOLO</th><th scope="col">Keyword</th><th scope="col">Alasan</th></tr></thead>
       <tbody>`;
     if (!rows.length) {
-      html += `<tr><td colspan="5" class="muted" style="text-align:center;padding:1.2rem">Tidak ada hasil pada filter ini.</td></tr>`;
+      html += `<tr><td colspan="6" class="muted" style="text-align:center;padding:1.2rem">Tidak ada hasil pada filter ini.</td></tr>`;
     }
-    for (const it of rows) {
+    rows.forEach((it, i) => {
       const kw = (it.keyword_hits || []).map(k => `<span class="kw">${esc(k)}</span>`).join("") || "&mdash;";
       const alasan = (it.alasan || []).slice(0, 3).map(esc).join("; ") || "&mdash;";
       const yolo = it.yolo_class ? `${esc(it.yolo_class)} <span class="muted">(${esc(it.yolo_conf)})</span>` : "&mdash;";
+      const thumb = it._url
+        ? `<img class="tthumb" src="${it._url}" alt="Preview ${esc(it.filename)}" loading="lazy" data-idx="${i}" onerror="this.style.display='none'">`
+        : `<div class="tthumb" style="display:grid;place-items:center;color:var(--muted);font-size:.7rem;cursor:default">-</div>`;
       html += `<tr>
+        <td>${thumb}</td>
         <td><div class="fn" title="${esc(it.filename)}">${esc(it.filename)}</div></td>
         <td><span class="badge ${it._cls}">${esc(it.keputusan)}</span></td>
         <td>${yolo}</td><td>${kw}</td><td class="alasan">${alasan}</td>
       </tr>`;
-    }
+    });
     html += `</tbody></table></div>`;
     resultBox.innerHTML = html;
 
     resultBox.querySelectorAll(".filters .f").forEach(b => b.addEventListener("click", () => { filter = b.dataset.f; renderResultInner(); }));
+    resultBox.querySelectorAll(".tthumb[data-idx]").forEach(t => t.addEventListener("click", () => openLightbox(+t.dataset.idx)));
   }
+
+  /* ---------- lightbox ---------- */
+  let lbIndex = -1;
+  function openLightbox(i) {
+    if (!gallery.length || !gallery[i].url) return;
+    lbIndex = i;
+    lbImg.src = gallery[i].url;
+    lbImg.alt = gallery[i].filename;
+    renderLbCap();
+    lightbox.classList.add("visible");
+    document.getElementById("lb-prev").style.visibility = gallery.length > 1 ? "visible" : "hidden";
+    document.getElementById("lb-next").style.visibility = gallery.length > 1 ? "visible" : "hidden";
+  }
+  function renderLbCap() {
+    const g = gallery[lbIndex];
+    lbCap.innerHTML = `${esc(g.filename)} &mdash; <b>${esc(g.keputusan)}</b> (${lbIndex + 1}/${gallery.length})`;
+  }
+  function closeLightbox() { lightbox.classList.remove("visible"); lbImg.src = ""; lbIndex = -1; }
+  function stepLb(dir) {
+    if (!gallery.length) return;
+    lbIndex = (lbIndex + dir + gallery.length) % gallery.length;
+    lbImg.src = gallery[lbIndex].url;
+    lbImg.alt = gallery[lbIndex].filename;
+    renderLbCap();
+  }
+  document.getElementById("lb-close").addEventListener("click", closeLightbox);
+  document.getElementById("lb-prev").addEventListener("click", () => stepLb(-1));
+  document.getElementById("lb-next").addEventListener("click", () => stepLb(1));
+  lightbox.addEventListener("click", e => { if (e.target === lightbox) closeLightbox(); });
+  document.addEventListener("keydown", e => {
+    if (!lightbox.classList.contains("visible")) return;
+    if (e.key === "Escape") closeLightbox();
+    if (e.key === "ArrowLeft") stepLb(-1);
+    if (e.key === "ArrowRight") stepLb(1);
+  });
 
   /* ---------- keywords ---------- */
   (async function loadKeywords() {
