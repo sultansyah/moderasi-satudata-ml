@@ -343,6 +343,7 @@
         <li><code>mobilenetv3</code> &mdash; MobileNetV3-Large, bobot &plusmn;16 MB, fine-tune 3 kelas di Google Colab (val_acc 0.85).</li>
         <li><code>clip</code> &mdash; CLIP ViT-B/32 zero-shot, bobot &plusmn;580 MB, tanpa training, paling tahan terhadap gambar di luar dataset (logo, iklan unik).</li>
       </ul>
+      <p>CLIP membandingkan gambar terhadap 17 prompt violative &amp; 24 prompt aman (Bahasa Indonesia utk konten bertulisan + Bahasa Inggris utk foto). Keputusan violative jika <code>SUM(skor violative) &ge; CLIP_VIOL_THRESHOLD</code> <em>dan</em> <code>SUM(skor violative) &ge; CLIP_VIOL_MARGIN &times; SUM(skor aman)</code>. Kategori violative: obat aborsi, rokok, alkohol, narkoba, 18+, kekerasan, senjata, judi, obat keras, penipuan.</p>
       <p>Klasifikasi ke 3 kelas: <code>obat_aborsi</code> (violative), <code>normal</code>, <code>dokumen</code>. Jika kelas violative terprediksi dengan konfidensi &ge; <code>VIOL_CONF_THRESHOLD</code> (default 0.70) &rarr; langsung DIMODERASI dan OCR dilewati. Di bawah ambang &rarr; dilanjut OCR + keyword.</p>
       <h3>2. Tesseract OCR — Ekstraksi Teks</h3>
       <p>Dijalankan bila visual tidak violative (atau violative ber-conf rendah). Membaca teks dalam gambar (Indonesia + Inggris), menangkap nomor WhatsApp, kata kunci iklan ilegal, atau nama produk yang luput dari deteksi visual. Gambar besar di-resize otomatis ke maks. 1600px.</p>
@@ -372,7 +373,7 @@
       <ul>
         <li><b>YOLO11n-cls</b>: 1.53 juta parameter, bobot 3.2 MB, &plusmn;37 ms/gambar. Paling cepat, cocok untuk CPU.</li>
         <li><b>MobileNetV3-Large</b>: transfer learning dari ImageNet, fine-tune 3 kelas di Google Colab, bobot &plusmn;16 MB, val_acc 0.85. Model aktif saat ini.</li>
-        <li><b>CLIP ViT-B/32</b>: zero-shot (tanpa training), bobot &plusmn;580 MB, paling tahan terhadap gambar di luar distribusi dataset (logo aplikasi, iklan unik). Ambang khusus: <code>CLIP_VIOL_THRESHOLD</code> (default 0.35).</li>
+        <li><b>CLIP ViT-B/32</b>: zero-shot (tanpa training), bobot &plusmn;580 MB, paling tahan terhadap gambar di luar distribusi dataset. Membandingkan gambar terhadap 17 prompt violative &amp; 24 prompt aman; keputusan pakai jumlah skor (SUM) + margin agar banyaknya prompt tidak men-dilusi deteksi. Hasil pada val (151 gambar): precision 0.92 / recall 0.83. Ambang: <code>CLIP_VIOL_THRESHOLD</code> (default 0.30) &amp; <code>CLIP_VIOL_MARGIN</code> (default 2.0).</li>
       </ul>
 
       <h3>Data Training</h3>
@@ -393,7 +394,8 @@
       <ul>
         <li><code>MODERASI_VISUAL</code> &mdash; engine default: <code>yolo</code> | <code>clip</code> | <code>mobilenetv3</code>.</li>
         <li><code>VIOL_CONF_THRESHOLD</code> &mdash; ambang violative utk YOLO/MobileNetV3 (default 0.70).</li>
-        <li><code>CLIP_VIOL_THRESHOLD</code> &mdash; ambang violative utk CLIP (default 0.35).</li>
+        <li><code>CLIP_VIOL_THRESHOLD</code> &mdash; ambang jumlah skor violative utk CLIP (default 0.30).</li>
+        <li><code>CLIP_VIOL_MARGIN</code> &mdash; rasio minimal skor violative terhadap skor aman utk CLIP (default 2.0).</li>
         <li><code>MODERASI_MODEL</code> &mdash; path model YOLO alternatif.</li>
       </ul>
 

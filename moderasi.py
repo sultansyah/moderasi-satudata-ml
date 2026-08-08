@@ -53,22 +53,50 @@ def visual_engine_available(engine):
     return False
 
 CLIP_MODEL_ID = "openai/clip-vit-base-patch32"
-CLIP_PROMPTS_VIOLATIVE = [
-    "kemasan obat penggugur kandungan",
-    "pil atau tablet obat aborsi",
-    "obat cytotec atau misoprostol",
-    "iklan jual obat aborsi ilegal",
-    "produk obat aborsi yang dijual ilegal",
-    "pill or tablet for abortion",
+CLIP_VIOLATIVE_CONCEPTS = [
+    ("obat_aborsi", "kemasan obat penggugur kandungan"),
+    ("obat_aborsi", "pil atau tablet obat aborsi"),
+    ("obat_aborsi", "obat cytotec atau misoprostol"),
+    ("obat_aborsi", "produk obat aborsi yang dijual ilegal"),
+    ("obat_aborsi", "iklan jual obat aborsi"),
+    ("obat_aborsi", "a photo of an abortion pill or its packaging"),
+    ("obat_aborsi", "a photo of an advertisement for abortion pills"),
+    ("rokok", "a photo of a cigarette or a pack of cigarettes"),
+    ("alkohol", "a photo of a bottle of alcohol, beer, or wine"),
+    ("narkoba", "a photo of marijuana or illegal drugs"),
+    ("dewasa", "a photo of nudity or explicit sexual content"),
+    ("dewasa", "a photo of a vulgar or pornographic image"),
+    ("kekerasan", "a photo of blood, violence, or a wound"),
+    ("senjata", "a photo of a gun, pistol, or sharp weapon"),
+    ("judi", "a photo of a slot machine or casino gambling"),
+    ("obat_keras", "a photo of medicine blister packs or prescription drugs"),
+    ("penipuan", "a photo of a scam advertisement or fake job vacancy poster"),
 ]
-CLIP_PROMPTS_SAFE = [
-    "logo aplikasi atau merek dagang",
-    "dokumen resmi, poster, atau sertifikat",
-    "foto makanan atau minuman",
-    "foto orang, hewan, atau pemandangan",
-    "produk kosmetik atau barang biasa",
-    "brosur atau banner promosi biasa",
-    "a normal everyday photo",
+CLIP_SAFE_CONCEPTS = [
+    ("dokumen", "dokumen resmi, surat, atau sertifikat"),
+    ("dokumen", "a photo of a document, paper, or certificate"),
+    ("poster", "poster acara, seminar, atau edukasi"),
+    ("poster", "a photo of a poster or banner"),
+    ("sertifikat", "sertifikat penghargaan atau pelatihan"),
+    ("undangan", "undangan pernikahan atau surat undangan"),
+    ("promo", "brosur, banner, atau flyer promosi"),
+    ("chat", "screenshot percakapan aplikasi chat atau whatsapp"),
+    ("makanan", "a photo of food or a meal"),
+    ("orang", "a photo of people"),
+    ("hewan", "a photo of an animal, cat, or dog"),
+    ("alam", "a photo of a natural landscape or scenery"),
+    ("gedung", "a photo of an office building or skyscraper"),
+    ("kendaraan", "a photo of a car, motorcycle, or vehicle"),
+    ("tanaman", "a photo of green plants or trees"),
+    ("sekolah", "a photo of students in a school or classroom"),
+    ("grafik", "a photo of a chart, graph, or data visualization"),
+    ("produk", "a photo of a product, cosmetics, or household goods"),
+    ("game", "a screenshot of a video game"),
+    ("anime", "a friendly anime or cartoon illustration"),
+    ("fashion", "a photo of clothes, bags, or shoes"),
+    ("resep", "a photo of a recipe or cooked dish"),
+    ("rumah", "a photo of a house or residential building"),
+    ("normal", "a photo of a normal everyday scene"),
 ]
 
 _clip_model = None
@@ -89,17 +117,28 @@ def _clip_classify(image_path):
     import torch
     model, proc = _load_clip()
     image = Image.open(image_path).convert("RGB")
-    texts = CLIP_PROMPTS_VIOLATIVE + CLIP_PROMPTS_SAFE
+    vio_labels = [l for l, _ in CLIP_VIOLATIVE_CONCEPTS]
+    vio_texts = [t for _, t in CLIP_VIOLATIVE_CONCEPTS]
+    safe_texts = [t for _, t in CLIP_SAFE_CONCEPTS]
+    texts = vio_texts + safe_texts
     inputs = proc(text=texts, images=image, return_tensors="pt", padding=True)
     with torch.no_grad():
         logits = model(**inputs).logits_per_image[0]
         probs = logits.softmax(dim=-1).tolist()
-    n_vio = len(CLIP_PROMPTS_VIOLATIVE)
-    best_vio = max(probs[:n_vio])
-    best_safe = max(probs[n_vio:])
-    floor = float(os.environ.get("CLIP_VIOL_THRESHOLD", "0.35"))
-    violative = best_vio >= floor and best_vio > best_safe
-    cls_name = "obat_aborsi" if violative else "aman"
+    n_vio = len(vio_texts)
+    vio_scores = probs[:n_vio]
+    safe_scores = probs[n_vio:]
+    vio_sum = sum(vio_scores)
+    safe_sum = sum(safe_scores)
+    floor = float(os.environ.get("CLIP_VIOL_THRESHOLD", "0.30"))
+    margin = float(os.environ.get("CLIP_VIOL_MARGIN", "2.0"))
+    best_vio = max(vio_scores)
+    best_safe = max(safe_scores)
+    violative = vio_sum >= floor and vio_sum >= safe_sum * margin
+    if violative:
+        cls_name = vio_labels[vio_scores.index(best_vio)]
+    else:
+        cls_name = "aman"
     conf = max(best_vio, best_safe)
     return cls_name, round(float(conf), 4), violative
 
