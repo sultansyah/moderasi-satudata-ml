@@ -18,6 +18,79 @@ FALLBACK_MODEL = os.path.join(BASE, "runs", "yolo11n-cls-mod-v4", "weights", "be
 
 KELAS_VIOLATIVE = ["obat_aborsi"]
 
+# Engine klasifikasi visual: "yolo" (default, lama) atau "clip" (zero-shot, lebih tahan).
+# Bisa diganti via env MODERASI_VISUAL atau argumen --visual tanpa mengubah kode.
+VISUAL_ENGINE = os.environ.get("MODERASI_VISUAL", "yolo").strip().lower()
+
+CLIP_MODEL_ID = "openai/clip-vit-base-patch32"
+CLIP_PROMPTS_VIOLATIVE = [
+    "kemasan obat penggugur kandungan",
+    "pil atau tablet obat aborsi",
+    "obat cytotec atau misoprostol",
+    "iklan jual obat aborsi ilegal",
+    "produk obat aborsi yang dijual ilegal",
+    "pill or tablet for abortion",
+]
+CLIP_PROMPTS_SAFE = [
+    "logo aplikasi atau merek dagang",
+    "dokumen resmi, poster, atau sertifikat",
+    "foto makanan atau minuman",
+    "foto orang, hewan, atau pemandangan",
+    "produk kosmetik atau barang biasa",
+    "brosur atau banner promosi biasa",
+    "a normal everyday photo",
+]
+
+_clip_model = None
+_clip_processor = None
+
+
+def _load_clip():
+    global _clip_model, _clip_processor
+    if _clip_model is None:
+        from transformers import CLIPModel, CLIPProcessor
+        _clip_model = CLIPModel.from_pretrained(CLIP_MODEL_ID)
+        _clip_processor = CLIPProcessor.from_pretrained(CLIP_MODEL_ID)
+        _clip_model.eval()
+    return _clip_model, _clip_processor
+
+
+def _clip_classify(image_path):
+    import torch
+    model, proc = _load_clip()
+    image = Image.open(image_path).convert("RGB")
+    texts = CLIP_PROMPTS_VIOLATIVE + CLIP_PROMPTS_SAFE
+    inputs = proc(text=texts, images=image, return_tensors="pt", padding=True)
+    with torch.no_grad():
+        logits = model(**inputs).logits_per_image[0]
+        probs = logits.softmax(dim=-1).tolist()
+    n_vio = len(CLIP_PROMPTS_VIOLATIVE)
+    best_vio = max(probs[:n_vio])
+    best_safe = max(probs[n_vio:])
+    floor = float(os.environ.get("CLIP_VIOL_THRESHOLD", "0.35"))
+    violative = best_vio >= floor and best_vio > best_safe
+    cls_name = "obat_aborsi" if violative else "aman"
+    conf = max(best_vio, best_safe)
+    return cls_name, round(float(conf), 4), violative
+
+
+def _visual_classify(model, image_path):
+    """Klasifikasi visual. Mengembalikan (cls_name, conf, violative, engine)."""
+    if VISUAL_ENGINE == "clip":
+        try:
+            return (*_clip_classify(image_path), "clip")
+        except Exception as e:
+            print(f"[WARN] CLIP gagal ({e}); fallback ke YOLO.")
+    preds = model.predict(image_path, verbose=False)
+    if preds:
+        p = preds[0]
+        if p.probs is not None:
+            cls_name = model.names[int(p.probs.top1)]
+            conf = float(p.probs.top1conf)
+            return cls_name, round(conf, 4), cls_name in KELAS_VIOLATIVE, "yolo"
+    return None, None, False, "yolo"
+
+
 def setup_tesseract():
     if os.path.isfile(TESSERACT_CMD_WIN):
         pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD_WIN
@@ -80,6 +153,7 @@ def moderasi_satu_gambar(model, image_path, lang="ind+eng"):
     result = {
         "file": image_path,
         "filename": filename,
+        "visual_engine": None,
         "yolo_class": None,
         "yolo_conf": None,
         "yolo_violative": False,
@@ -89,21 +163,16 @@ def moderasi_satu_gambar(model, image_path, lang="ind+eng"):
         "alasan": [],
     }
 
-    # 1) YOLO classification
-    preds = model.predict(image_path, verbose=False)
-    if preds:
-        p = preds[0]
-        if p.probs is not None:
-            cls_id = int(p.probs.top1)
-            conf = float(p.probs.top1conf)
-            cls_name = model.names[cls_id]
-            result["yolo_class"] = cls_name
-            result["yolo_conf"] = round(conf, 4)
-            if cls_name in KELAS_VIOLATIVE:
-                result["yolo_violative"] = True
-                result["alasan"].append(f"YOLO deteksi kelas violative: {cls_name} (conf {conf:.2f})")
+    # 1) Visual classification (CLIP zero-shot atau YOLO)
+    cls_name, conf, violative, engine = _visual_classify(model, image_path)
+    result["visual_engine"] = engine
+    result["yolo_class"] = cls_name
+    result["yolo_conf"] = conf
+    if violative:
+        result["yolo_violative"] = True
+        result["alasan"].append(f"{engine.upper()} deteksi kelas violative: {cls_name} (conf {conf:.2f})")
 
-    # 2) Tesseract OCR — dilewati jika YOLO sudah violative (keputusan sudah DIMODERASI)
+    # 2) Tesseract OCR — dilewati jika visual sudah violative (keputusan sudah DIMODERASI)
     if not result["yolo_violative"]:
         raw = ocr_text(image_path, lang=lang)
         result["ocr_text"] = raw[:500]
@@ -121,7 +190,7 @@ def moderasi_satu_gambar(model, image_path, lang="ind+eng"):
                 result["keyword_hits"] = hits[:20]
                 result["alasan"].append(f"Filename match keyword: {', '.join(hits[:10])}")
     else:
-        result["alasan"].append("OCR dilewati (YOLO sudah violative)")
+        result["alasan"].append("OCR dilewati (visual sudah violative)")
 
     # Keputusan akhir
     if result["yolo_violative"] or result["keyword_hits"]:
@@ -133,9 +202,14 @@ def main():
     ap = argparse.ArgumentParser(description="Sistem Moderasi Gambar Otomatis")
     ap.add_argument("input", nargs="+", help="Path gambar atau folder")
     ap.add_argument("--model", default=None, help="Path model YOLO (default: best.pt dari training)")
+    ap.add_argument("--visual", default=None, choices=["yolo", "clip"], help="Engine visual: yolo | clip (default: env MODERASI_VISUAL atau yolo)")
     ap.add_argument("--lang", default="ind+eng", help="Bahasa OCR Tesseract (default: ind+eng)")
     ap.add_argument("--json", action="store_true", help="Output JSON ke konsol")
     args = ap.parse_args()
+
+    if args.visual:
+        global VISUAL_ENGINE
+        VISUAL_ENGINE = args.visual
 
     model = load_model(args.model)
 
@@ -164,7 +238,7 @@ def main():
         summary[r["keputusan"]] += 1
         status = "[DIMODERASI]" if r["keputusan"] == "DIMODERASI" else "[LOLOS]"
         print(f"{status} {os.path.basename(f)}")
-        print(f"   YOLO : {r['yolo_class']} (conf {r['yolo_conf']})")
+        print(f"   {r['visual_engine'].upper()} : {r['yolo_class']} (conf {r['yolo_conf']})")
         if r["keyword_hits"]:
             print(f"   KEY  : {', '.join(r['keyword_hits'][:8])}")
         if r["alasan"]:

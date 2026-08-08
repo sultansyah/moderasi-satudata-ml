@@ -564,7 +564,7 @@
     html += `<div class="filters">${pill("semua", "Semua")}${pill("lolos", "Lolos")}${pill("dimoderasi", "Dimoderasi")}${pill("error", "Error")}</div>`;
 
     html += `<div class="table-wrap"><table>
-      <thead><tr><th scope="col">Gambar</th><th scope="col">File</th><th scope="col">Status</th><th scope="col">YOLO</th><th scope="col">Keyword</th><th scope="col">Alasan</th></tr></thead>
+      <thead><tr><th scope="col">Gambar</th><th scope="col">File</th><th scope="col">Status</th><th scope="col">Visual</th><th scope="col">Keyword</th><th scope="col">Alasan</th></tr></thead>
       <tbody>`;
     if (!rows.length) {
       html += `<tr><td colspan="6" class="muted" style="text-align:center;padding:1.2rem">Tidak ada hasil pada filter ini.</td></tr>`;
@@ -572,7 +572,9 @@
     rows.forEach((it, i) => {
       const kw = (it.keyword_hits || []).map(k => `<span class="kw">${esc(k)}</span>`).join("") || "&mdash;";
       const alasan = (it.alasan || []).slice(0, 3).map(esc).join("; ") || "&mdash;";
-      const yolo = it.yolo_class ? `${esc(it.yolo_class)} <span class="muted">(${esc(it.yolo_conf)})</span>` : "&mdash;";
+      const yolo = it.yolo_class
+        ? `${esc(it.yolo_class)} <span class="muted">(${esc(it.yolo_conf)})</span> <span class="kw" style="font-size:.65rem;padding:.05rem .35rem">${esc(it.visual_engine || "yolo")}</span>`
+        : "&mdash;";
       const thumb = it._url
         ? `<img class="tthumb" src="${it._url}" alt="Preview ${esc(it.filename)}" loading="lazy" data-idx="${i}" onerror="this.style.display='none'">`
         : `<div class="tthumb" style="display:grid;place-items:center;color:var(--muted);font-size:.7rem;cursor:default">-</div>`;

@@ -10,7 +10,7 @@ from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from PIL import Image
 
-from moderasi import load_model, moderasi_satu_gambar, KELAS_VIOLATIVE
+from moderasi import load_model, moderasi_satu_gambar, KELAS_VIOLATIVE, VISUAL_ENGINE
 from keywords import KEYWORDS_ALL, KEYWORDS_ABORSI, KEYWORDS_BORAKS, KEYWORDS_UMUM
 
 ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"}
@@ -55,6 +55,7 @@ def _moderate_bytes(name, data):
                 "filename": name,
                 "keputusan": "ERROR",
                 "alasan": [f"Bukan gambar valid: {e}"],
+                "visual_engine": None,
                 "yolo_class": None,
                 "yolo_conf": None,
                 "keyword_hits": [],
@@ -134,7 +135,7 @@ def get_keywords():
 @app.get("/health")
 def health():
     m = get_model()
-    return {"status": "ok", "model": os.path.basename(m.model.pt_path or "best.pt"), "kelas": list(m.names.values())}
+    return {"status": "ok", "visual_engine": VISUAL_ENGINE, "model": os.path.basename(m.model.pt_path or "best.pt"), "kelas": list(m.names.values())}
 
 
 def main():
@@ -143,11 +144,15 @@ def main():
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8787)
     ap.add_argument("--model", default=None, help="Path model YOLO (override default)")
+    ap.add_argument("--visual", default=None, choices=["yolo", "clip"], help="Engine visual: yolo | clip (default: env MODERASI_VISUAL atau yolo)")
     args = ap.parse_args()
 
     if args.model:
         from moderasi import DEFAULT_MODEL
         os.environ["MODERASI_MODEL"] = os.path.abspath(args.model)
+    if args.visual:
+        import moderasi
+        moderasi.VISUAL_ENGINE = args.visual
 
     print(f"=== Server Moderasi Gambar ===\n  http://{args.host}:{args.port}\n"
           f"  GET  /               -> halaman upload\n"
