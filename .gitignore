@@ -19,9 +19,9 @@ ENV/
 dataset/
 dataset_*/
 runs/
-models/
 *.pt
 *.onnx
+!models/best.pt
 *_openvino_model/
 
 # ===== Log & hasil benchmark =====
