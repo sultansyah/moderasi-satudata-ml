@@ -12,11 +12,12 @@ Sistem moderasi gambar otomatis yang mendeteksi konten ilegal/berbahaya mengguna
 ## Arsitektur
 
 ```
-Input Gambar → YOLO11-cls → Tesseract OCR → Keyword Filter → DIMODERASI
-                                                    └─ hasil negatif → LOLOS
+Input Gambar → YOLO11-cls ──violative──→ DIMODERASI (OCR dilewati)
+                      └─ normal → Tesseract OCR → Keyword Filter → DIMODERASI
+                                                        └─ hasil negatif → LOLOS
 ```
 
-Keputusan **DIMODERASI** jika YOLO mendeteksi kelas violative **ATAU** OCR/cocok dengan keyword blacklist (aborsi, cytotec, misoprostol, boraks, dsb.).
+Keputusan **DIMODERASI** jika YOLO mendeteksi kelas violative (langsung, tanpa OCR) **ATAU** OCR/cocok dengan keyword blacklist (aborsi, cytotec, misoprostol, boraks, dsb.). OCR hanya dijalankan saat YOLO = `normal`.
 
 ## Instalasi (uv)
 
@@ -69,5 +70,5 @@ uv run python moderasi.py <gambar atau folder> [--json]
 ## Keterbatasan
 
 - Dataset kecil & noisy (hasil scrape) — akurasi bisa ditingkatkan dengan data tambahan.
-- OCR (~550ms/gambar) jadi bottleneck; YOLO hanya ~37ms. Gambar besar otomatis di-resize ke max 1600px sebelum OCR.
+- OCR (~550ms/gambar) jadi bottleneck untuk gambar `normal`; YOLO hanya ~37ms. Gambar besar otomatis di-resize ke max 1600px sebelum OCR, dan OCR otomatis dilewati saat YOLO = violative.
 - Membutuhkan **Tesseract-OCR** terinstall (default `C:\Program Files\Tesseract-OCR\tesseract.exe`).

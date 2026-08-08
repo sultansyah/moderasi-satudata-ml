@@ -18,8 +18,8 @@ MAX_WORKERS = 4
 
 app = FastAPI(
     title="Sistem Moderasi Gambar Otomatis",
-    description="Moderasi gambar via YOLO11 (klasifikasi) + Tesseract OCR + keyword filtering. "
-                "Keputusan: LOLOS / DIMODERASI.",
+    description="Moderasi gambar via YOLO11 (klasifikasi). Jika violative → langsung DIMODERASI; "
+                "jika normal → Tesseract OCR + keyword filtering. Keputusan: LOLOS / DIMODERASI.",
     version="1.0.0",
 )
 

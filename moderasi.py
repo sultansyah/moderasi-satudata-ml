@@ -14,7 +14,7 @@ from keywords import KEYWORDS_ALL
 TESSERACT_CMD_WIN = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 BASE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_MODEL = os.path.join(BASE, "models", "best.pt")
-FALLBACK_MODEL = os.path.join(BASE, "runs", "yolo11n-cls-mod-v3", "weights", "best.pt")
+FALLBACK_MODEL = os.path.join(BASE, "runs", "yolo11n-cls-mod-v4", "weights", "best.pt")
 
 KELAS_VIOLATIVE = ["obat_aborsi"]
 
@@ -103,22 +103,25 @@ def moderasi_satu_gambar(model, image_path, lang="ind+eng"):
                 result["yolo_violative"] = True
                 result["alasan"].append(f"YOLO deteksi kelas violative: {cls_name} (conf {conf:.2f})")
 
-    # 2) Tesseract OCR
-    raw = ocr_text(image_path, lang=lang)
-    result["ocr_text"] = raw[:500]
-    if raw:
-        norm = normalize(raw)
-        hits = keyword_hits(norm)
-        if hits:
-            result["keyword_hits"] = hits[:20]
-            result["alasan"].append(f"OCR match keyword: {', '.join(hits[:10])}")
+    # 2) Tesseract OCR — dilewati jika YOLO sudah violative (keputusan sudah DIMODERASI)
+    if not result["yolo_violative"]:
+        raw = ocr_text(image_path, lang=lang)
+        result["ocr_text"] = raw[:500]
+        if raw:
+            norm = normalize(raw)
+            hits = keyword_hits(norm)
+            if hits:
+                result["keyword_hits"] = hits[:20]
+                result["alasan"].append(f"OCR match keyword: {', '.join(hits[:10])}")
 
-    # 3) Filename check (fallback kalau OCR kosong)
-    if not result["keyword_hits"]:
-        hits = keyword_hits(normalize(filename))
-        if hits:
-            result["keyword_hits"] = hits[:20]
-            result["alasan"].append(f"Filename match keyword: {', '.join(hits[:10])}")
+        # 3) Filename check (fallback kalau OCR kosong)
+        if not result["keyword_hits"]:
+            hits = keyword_hits(normalize(filename))
+            if hits:
+                result["keyword_hits"] = hits[:20]
+                result["alasan"].append(f"Filename match keyword: {', '.join(hits[:10])}")
+    else:
+        result["alasan"].append("OCR dilewati (YOLO sudah violative)")
 
     # Keputusan akhir
     if result["yolo_violative"] or result["keyword_hits"]:

@@ -164,8 +164,9 @@
   <h2>Arsitektur Sistem</h2>
   <div class="flow">
     <div class="node">Input Gambar</div><div class="arrow">→</div>
-    <div class="node">YOLO11-cls<br><span class="muted" style="font-size:.72rem">deteksi visual</span></div><div class="arrow">→</div>
-    <div class="node">Tesseract OCR<br><span class="muted" style="font-size:.72rem">ekstrak teks</span></div><div class="arrow">→</div>
+    <div class="node vio">YOLO11-cls<br><span class="muted" style="font-size:.72rem">deteksi visual</span></div>
+    <div class="flow"><div class="arrow" style="text-align:center">└ violative → langsung DIMODERASI (OCR dilewati)</div></div>
+    <div class="node">Tesseract OCR<br><span class="muted" style="font-size:.72rem">ekstrak teks (jika YOLO = normal)</span></div><div class="arrow">→</div>
     <div class="node">Keyword Filter<br><span class="muted" style="font-size:.72rem">48 kata kunci</span></div><div class="arrow">→</div>
     <div class="node vio">DIMODERASI</div>
   </div>
@@ -174,12 +175,14 @@
   <div class="arch-item"><div class="step">1</div><div>
     <h3>YOLO11n-cls — Deteksi Visual</h3>
     <p>Klasifikasi gambar ke 2 kelas: <code>obat_aborsi</code>, <code>normal</code>.
-       Kecepatan ~37 ms/gambar (26.7 img/s). Jika terdeteksi kelas violative → langsung <b style="color:var(--red)">DIMODERASI</b>.</p>
+       Kecepatan ~37 ms/gambar (26.7 img/s). Jika terdeteksi kelas violative → langsung <b style="color:var(--red)">DIMODERASI</b>
+       dan proses berhenti di sini (OCR tidak dijalankan).</p>
   </div></div>
   <div class="arch-item"><div class="step">2</div><div>
     <h3>Tesseract OCR — Ekstraksi Teks</h3>
-    <p>Membaca teks di dalam gambar (bahasa Indonesia + Inggris). Menangkap nomor WhatsApp, kata kunci iklan ilegal, atau nama produk
-       yang tidak bisa dikenali secara visual oleh YOLO. Ini bagian paling lambat: ~550 ms/gambar.</p>
+    <p>Hanya dijalankan jika YOLO = <code>normal</code>. Membaca teks di dalam gambar (bahasa Indonesia + Inggris), menangkap nomor WhatsApp,
+       kata kunci iklan ilegal, atau nama produk yang tidak bisa dikenali secara visual oleh YOLO. Bagian paling lambat: ~550 ms/gambar
+       (gambar besar otomatis di-resize ke max 1600px).</p>
   </div></div>
   <div class="arch-item"><div class="step">3</div><div>
     <h3>Keyword Filtering — Pencocokan Kata Kunci</h3>
@@ -213,8 +216,9 @@
   </table>
   <p class="muted" style="font-size:.85rem">
     Kelas <code>obat_aborsi</code> disebut <b>kelas violative</b> — jika model memprediksinya, gambar langsung
-    <b style="color:var(--red)">DIMODERASI</b>. OCR + keyword tetap dijalankan sebagai lapisan kedua untuk menangkap konten yang lolos dari visual
-    (mis. teks iklan di gambar yang dikira <code>normal</code>), dan keputusan <b style="color:var(--red)">DIMODERASI</b> otomatis jika ada keyword yang cocok.
+    <b style="color:var(--red)">DIMODERASI</b> dan proses berhenti (OCR dilewati). OCR + keyword hanya dijalankan saat YOLO = <code>normal</code>,
+    untuk menangkap konten yang lolos dari visual (mis. teks iklan di gambar yang dikira <code>normal</code>) — jika ada keyword yang cocok,
+    keputusan otomatis <b style="color:var(--red)">DIMODERASI</b>.
   </p>
 
   <h3 style="color:#fff; margin-bottom:.6rem">Apa itu YOLO11n-cls?</h3>
@@ -253,7 +257,7 @@
   <h3 style="color:#fff; margin:.6rem 0">Keterbatasan &amp; Catatan</h3>
   <ul class="clean">
     <li><b>False positive normal</b>: ±3 dari 48 gambar normal ditandai DIMODERASI (sengaja lebih agresif agar konten ilegal tidak lolos).</li>
-    <li><b>Bottleneck OCR</b>: ~550 ms/gambar; YOLO hanya 37 ms. Kalau hanya dijalankan saat YOLO = normal, kecepatan naik drastis.</li>
+    <li><b>Bottleneck OCR</b>: ~550 ms/gambar; YOLO hanya 37 ms. OCR sudah otomatis dilewati saat YOLO = violative, jadi gambar ilegal diproses hampir seketika.</li>
     <li>Dataset kecil &amp; noisy (scrape). Akurasi bisa naik dengan data lebih banyak, augmentasi, atau GPU untuk training lebih lama.</li>
   </ul>
 </div>
