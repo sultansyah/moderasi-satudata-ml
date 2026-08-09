@@ -13,7 +13,7 @@ from PIL import Image
 import moderasi
 from moderasi import load_model, moderasi_satu_gambar, KELAS_VIOLATIVE, VALID_VISUAL_ENGINES
 from moderasi import set_visual_engine, visual_engine_available
-from keywords import KEYWORDS_ALL, KEYWORDS_ABORSI, KEYWORDS_BORAKS, KEYWORDS_UMUM
+from keywords import KEYWORDS_ALL, KEYWORDS_ABORSI, KEYWORDS_BORAKS, KEYWORDS_UMUM, KEYWORDS_JUDI
 
 ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"}
 MAX_WORKERS = 4
@@ -165,6 +165,7 @@ def get_keywords():
         "aborsi": sorted(KEYWORDS_ABORSI),
         "boraks": sorted(KEYWORDS_BORAKS),
         "umum": sorted(KEYWORDS_UMUM),
+        "judi": sorted(KEYWORDS_JUDI),
     }
 
 

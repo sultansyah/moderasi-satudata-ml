@@ -4,6 +4,7 @@ import sys
 import shutil
 import argparse
 import json
+import unicodedata
 
 import pytesseract
 from PIL import Image
@@ -71,6 +72,12 @@ CLIP_VIOLATIVE_CONCEPTS = [
     ("judi", "a photo of a slot machine or casino gambling"),
     ("obat_keras", "a photo of medicine blister packs or prescription drugs"),
     ("penipuan", "a photo of a scam advertisement or fake job vacancy poster"),
+    ("judi", "a photo of an online gambling or casino advertisement"),
+    ("judi", "a photo of a slot machine or slot game interface"),
+    ("judi", "a photo of a betting advertisement for a bookmaker website"),
+    ("judi", "a photo of the greek god zeus with lightning from a slot game"),
+    ("judi", "a colorful slot game grid with gems, coins, and multipliers"),
+    ("judi", "a photo of a sports betting or lottery advertisement"),
 ]
 CLIP_SAFE_CONCEPTS = [
     ("dokumen", "dokumen resmi, surat, atau sertifikat"),
@@ -253,8 +260,17 @@ def ocr_text(image_path, lang="ind+eng"):
         return ""
 
 
+def _strip_vietnamese_diacritics(s):
+    s = unicodedata.normalize("NFKD", s)
+    s = s.replace("đ", "d").replace("Đ", "d")
+    s = s.replace("ư", "u").replace("Ư", "u")
+    s = s.replace("ơ", "o").replace("Ơ", "o")
+    return "".join(c for c in s if not unicodedata.combining(c))
+
+
 def normalize(s):
     s = s.lower()
+    s = _strip_vietnamese_diacritics(s)
     s = re.sub(r"[^a-z0-9\s]", " ", s)
     s = re.sub(r"\s+", " ", s)
     return s.strip()
@@ -262,9 +278,14 @@ def normalize(s):
 
 def keyword_hits(text_normalized):
     hits = []
+    words = set(text_normalized.split())
     for kw in KEYWORDS_ALL:
-        if kw in text_normalized:
-            hits.append(kw)
+        if len(kw) <= 3:
+            if kw in words:
+                hits.append(kw)
+        else:
+            if kw in text_normalized:
+                hits.append(kw)
     return hits
 
 

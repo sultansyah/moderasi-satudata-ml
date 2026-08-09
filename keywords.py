@@ -63,8 +63,37 @@ KEYWORDS_UMUM = [
     "rasa aman",
 ]
 
+# Keyword judi online / slot (Indonesia, Vietnam, dan brand ASEAN).
+# Istilah Vietnam ditulis TANPA diakritik: normalize() mengubah teks OCR
+# beraksen (đánh bạc -> "danh bac") sebelum dicocokkan.
+# Keyword panjang <= 3 karakter (bet, w88, ok9, ...) dicocokkan sebagai KATA UTUH,
+# supaya tidak salah-match substring di kata lain (mis. "bet" di "alphabet").
+KEYWORDS_JUDI = [
+    # Indonesia
+    "judi online", "situs judi", "bandar judi", "agen judi", "judi bola",
+    "taruhan online", "judol", "judi slot", "slot gacor", "gacor", "maxwin",
+    "link slot", "situs slot", "daftar slot", "slot online", "slot demo",
+    "idn poker", "poker online", "domino qq", "baccarat", "roulette", "sicbo",
+    # Vietnam (transliterasi ASCII)
+    "danh bac", "danh bai", "ca cuoc", "ca do", "nha cai", "lo de", "xo so",
+    "no hu", "quay hu", "ban ca", "doi thuong", "tai xiu", "xoc dia",
+    "co bac", "bau cua", "da ga", "song bai", "game bai",
+    # Brand situs judi (ASEAN)
+    "w88", "m88", "fun88", "f88", "188bet", "1xbet", "bet365", "sbobet",
+    "sbotop", "kubet", "jun88", "vn88", "shbet", "hi88", "new88", "ok9",
+    "78win", "bk8", "debet", "fcb8", "8xbet", "bwing", "tf88", "v9bet",
+    "dabet", "may88", "rikvip", "go88", "kingfun", "red88", "ee88", "zbet",
+    "12bet", "letou", "win55", "fb88", "cmd368", "oppabet", "789bet",
+    # Game slot populer (ZEUS, OLYMPUS, dll.)
+    "bet", "zeus", "olympus", "sweet bonanza", "bonanza", "starlight princess",
+    "mahjong ways", "sugar rush", "big bass", "wolf gold", "aztec gems",
+    "book of dead", "wisdom of athena", "gates of hades", "fruit party",
+    "pragmatic", "jili", "slot88", "cq9", "habanero", "pussy888", "mega888",
+    "pg soft", "ante bet",
+]
+
 # Gabungan semua keyword (dipakai untuk pencocokan OCR)
-KEYWORDS_ALL = list(set(KEYWORDS_ABORSI + KEYWORDS_BORAKS + KEYWORDS_UMUM))
+KEYWORDS_ALL = list(set(KEYWORDS_ABORSI + KEYWORDS_BORAKS + KEYWORDS_UMUM + KEYWORDS_JUDI))
 
 # Alternatif: satu string besar untuk substring match cepat
 KEYWORDS_TEXT = "|".join(KEYWORDS_ALL)

@@ -32,7 +32,7 @@ fi
 echo "==> [1/7] Install paket sistem (Python + Tesseract + bahasa Indonesia)"
 apt-get update -y
 apt-get install -y python3 python3-venv python3-pip \
-  tesseract-ocr tesseract-ocr-ind \
+  tesseract-ocr tesseract-ocr-ind tesseract-ocr-vie \
   libgl1 libglib2.0-0 curl
 
 echo "==> [2/7] Salin file aplikasi ke $APP_DIR"

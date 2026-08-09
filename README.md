@@ -58,7 +58,7 @@ uv run python server.py --host 127.0.0.1 --port 8787
 - `GET  /` — halaman upload (`ui.html`)
 - `POST /api/moderasi/satu` — moderasi 1 gambar (field: `file`)
 - `POST /api/moderasi/bulk` — moderasi banyak gambar (field: `files`, max 1000)
-- `GET  /api/keywords` — daftar keyword
+- `GET  /api/keywords` — daftar keyword blacklist (aborsi/boraks/judi/umum)
 - `GET  /health` — status server & kelas model
 
 ## CLI Offline

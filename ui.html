@@ -295,6 +295,7 @@
     </p>
     <div id="kw-aborsi"></div>
     <div id="kw-boraks"></div>
+    <div id="kw-judi"></div>
     <div id="kw-umum"></div>
   </section>
 
@@ -745,7 +746,7 @@ curl -X POST "http://IP:8787/api/engines/default?engine=mobilenetv3"</code></pre
       if (!resp.ok) return;
       const j = await resp.json();
       document.getElementById("kw-total").textContent = j.total;
-      const cats = [["aborsi", "Obat Aborsi / Penggugur"], ["boraks", "Boraks / Formalin"], ["umum", "Tanda Iklan Spam / Umum"]];
+      const cats = [["aborsi", "Obat Aborsi / Penggugur"], ["boraks", "Boraks / Formalin"], ["judi", "Judi Online (ID / VN / brand / slot)"], ["umum", "Tanda Iklan Spam / Umum"]];
       for (const [key, label] of cats) {
         const list = j[key] || [];
         document.getElementById("kw-" + key).innerHTML =
