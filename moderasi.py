@@ -24,7 +24,7 @@ KELAS_VIOLATIVE = ["obat_aborsi"]
 VIOL_CONF_THRESHOLD = float(os.environ.get("VIOL_CONF_THRESHOLD", "0.70"))
 
 # Engine klasifikasi visual: "yolo" (default, lama), "clip" (zero-shot),
-# "mobilenetv3", atau "smolvlm" (VLM SmolVLM2-256M).
+# "mobilenetv3", atau "smolvlm" (VLM SmolVLM2-500M).
 # Bisa diganti via env MODERASI_VISUAL, argumen --visual, atau runtime (set_visual_engine).
 VALID_VISUAL_ENGINES = ("yolo", "clip", "mobilenetv3", "smolvlm")
 VISUAL_ENGINE = os.environ.get("MODERASI_VISUAL", "yolo").strip().lower()

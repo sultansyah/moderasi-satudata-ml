@@ -308,18 +308,18 @@
       <div class="flow">
         <div class="fnode">Input Gambar</div>
         <div class="farrow">&#9660;</div>
-        <div class="fnode">Engine Visual<small>YOLO &middot; MobileNetV3 &middot; CLIP</small></div>
+        <div class="fnode">Engine Visual<small>YOLO &middot; MobileNetV3 &middot; CLIP &middot; SmolVLM</small></div>
         <div class="farrow">&#9660;</div>
-        <span class="fd"><span class="fd-in"><span class="fd-txt">Violative?<small>kelas obat_aborsi, conf &ge; ambang</small></span></span></span>
+        <span class="fd"><span class="fd-in"><span class="fd-txt">Visual violative?<small>kelas, prompt, atau ILLEGAL_AD</small></span></span></span>
 
         <div class="fbranch">
           <div class="fpath">
             <span class="flabel no">Ya</span>
-            <div class="fnode vio">DIMODERASI<small>YOLO/MobileNetV3: OCR dilewati<br>CLIP: cek OCR + konteks</small></div>
+            <div class="fnode vio">DIMODERASI<small>YOLO/MobileNetV3: OCR dilewati<br>CLIP: cek OCR + konteks<br>SmolVLM: ILLEGAL_AD</small></div>
           </div>
           <div class="fpath">
             <span class="flabel ok">Tidak</span>
-            <div class="fnode">Tesseract OCR<small>ekstraksi teks</small></div>
+            <div class="fnode">Tesseract OCR<small>aman, ragu, CLIP, atau SmolVLM non-ILLEGAL_AD</small></div>
             <div class="farrow">&#9660;</div>
             <div class="fnode">Keyword + Context Gate<small>OCR + nama file</small></div>
             <div class="farrow">&#9660;</div>
@@ -347,15 +347,17 @@
         <li><code>smolvlm</code> &mdash; SmolVLM2-500M, VLM yang memahami gambar <em>dan</em> teks di dalamnya; menilai langsung apakah gambar itu iklan ilegal, berita/edukasi, atau normal (bobot &plusmn;1 GB, lambat di CPU &mdash; &plusmn;20 detik per gambar).</li>
       </ul>
       <p>CLIP membandingkan gambar terhadap prompt violative yang fokus pada promosi/transaksi (jual, harga, kontak, daftar, deposit) dan prompt aman untuk berita, edukasi, peringatan publik, serta kampanye anti-judi/anti-konten ilegal. Keputusan awal violative jika <code>SUM(skor violative) &ge; CLIP_VIOL_THRESHOLD</code> <em>dan</em> <code>SUM(skor violative) &ge; CLIP_VIOL_MARGIN &times; SUM(skor aman)</code>.</p>
-      <p>Klasifikasi ke 3 kelas: <code>obat_aborsi</code> (violative), <code>normal</code>, <code>dokumen</code>. Untuk YOLO/MobileNetV3, prediksi violative dengan konfidensi &ge; <code>VIOL_CONF_THRESHOLD</code> (default 0.70) &rarr; langsung DIMODERASI dan OCR dilewati. Untuk CLIP, prediksi violative tetap dilanjutkan ke OCR + context gate agar poster berita/edukasi/peringatan tidak otomatis dihukum. SmolVLM menghasilkan vonis sendiri (ILLEGAL_AD / PUBLIC_INFO / NORMAL) tanpa butuh OCR.</p>
+      <p>Klasifikasi lokal memakai 3 kelas: <code>obat_aborsi</code> (violative), <code>normal</code>, <code>dokumen</code>. Untuk YOLO/MobileNetV3, prediksi violative dengan konfidensi &ge; <code>VIOL_CONF_THRESHOLD</code> (default 0.70) &rarr; langsung DIMODERASI dan OCR dilewati. Untuk CLIP, prediksi violative tetap dilanjutkan ke OCR + context gate agar poster berita/edukasi/peringatan tidak otomatis dihukum. SmolVLM menghasilkan vonis sendiri (<code>ILLEGAL_AD</code> / <code>PUBLIC_INFO</code> / <code>NORMAL</code>); <code>ILLEGAL_AD</code> langsung DIMODERASI, sedangkan <code>PUBLIC_INFO</code>/<code>NORMAL</code> tetap melewati OCR sebagai safety net.</p>
       <h3>2. Tesseract OCR — Ekstraksi Teks</h3>
-      <p>Dijalankan bila visual tidak violative, visual masih ragu, atau engine yang dipakai adalah CLIP (untuk SmolVLM sudah membaca teks internal, OCR hanya pelengkap bila vonisnya aman). Membaca teks dalam gambar (Indonesia + Inggris), menangkap nomor WhatsApp, kata kunci iklan ilegal, serta sinyal konteks berita/peringatan seperti pemerintah, investigasi, edukasi, jangan, berhenti, konseling, dan kampanye. Gambar besar di-resize otomatis ke maks. 1600px.</p>
+      <p>Dijalankan bila visual tidak violative, visual masih ragu, engine yang dipakai adalah CLIP, atau SmolVLM tidak menjawab <code>ILLEGAL_AD</code>. OCR membaca teks dalam gambar (Indonesia + Inggris), menangkap nomor WhatsApp, kata kunci iklan ilegal, serta sinyal konteks berita/peringatan seperti pemerintah, investigasi, edukasi, jangan, berhenti, konseling, dan kampanye. Gambar besar di-resize otomatis ke maks. 1600px.</p>
       <h3>3. Keyword + Context Gate — Pencocokan Kata Kunci</h3>
       <p>Mencocokkan teks OCR dengan kata kunci blacklist (aborsi, cytotec, misoprostol, boraks, judi online, dsb.) sekaligus membedakan konteks promosi/transaksi dari berita/edukasi/peringatan. Teks dinormalisasi dulu (huruf kecil, simbol dibuang); nama file dipakai fallback bila OCR kosong.</p>
       <h3>4. Keputusan Akhir</h3>
       <p><b style="color:var(--red)">DIMODERASI</b> bila <code>visual = violative</code> untuk YOLO/MobileNetV3/SmolVLM, atau <code>keyword match</code> berada dalam konteks promosi/transaksi. <b style="color:var(--green)">LOLOS</b> bila keyword negatif, atau keyword muncul dalam konteks berita/edukasi/peringatan publik.</p>
       <h3>5. Web Server (FastAPI)</h3>
       <p>Endpoint <code>POST /api/moderasi/satu</code> (1 gambar) dan <code>POST /api/moderasi/bulk</code> (banyak, maks. 1000, paralel 4 thread), <code>GET /api/engines</code> (daftar engine + default), <code>POST /api/engines/default?engine=...</code> (set default). Engine bisa diatur per-request lewat <code>?visual=yolo|clip|mobilenetv3|smolvlm</code>. Respons JSON.</p>
+      <h3>6. Catatan SmolVLM</h3>
+      <p>SmolVLM punya tiga waktu tunggu berbeda: download model saat cache Hugging Face belum ada, load model saat pertama dipakai setelah server start, lalu inference per gambar. Di CPU, inference bisa belasan sampai puluhan detik per gambar. Gunakan <code>HF_HOME</code> agar cache model tetap, dan hindari SmolVLM untuk batch besar. Jika CLIP/SmolVLM gagal saat runtime, server fallback ke YOLO dan field <code>visual_engine</code> menunjukkan engine yang benar-benar dipakai.</p>
     </div>
   </details>
 
@@ -377,6 +379,7 @@
         <li><b>YOLO11n-cls</b>: 1.53 juta parameter, bobot 3.2 MB, &plusmn;37 ms/gambar. Paling cepat, cocok untuk CPU.</li>
         <li><b>MobileNetV3-Large</b>: transfer learning dari ImageNet, fine-tune 3 kelas di Google Colab, bobot &plusmn;16 MB, val_acc 0.85. Model aktif saat ini.</li>
         <li><b>CLIP ViT-B/32</b>: zero-shot (tanpa training), bobot &plusmn;580 MB, paling tahan terhadap gambar di luar distribusi dataset. Prompt violative dipersempit ke konteks promosi/transaksi, sementara prompt aman mencakup berita, edukasi, peringatan publik, dan kampanye anti-judi/anti-konten ilegal. Ambang: <code>CLIP_VIOL_THRESHOLD</code> (default 0.30) &amp; <code>CLIP_VIOL_MARGIN</code> (default 2.0).</li>
+        <li><b>SmolVLM2-500M</b>: VLM paling kaya konteks, tetapi paling berat. Cocok untuk review manual gambar sulit; kurang cocok sebagai default batch di CPU karena download awal besar, load model lama, dan inference lambat.</li>
       </ul>
 
       <h3>Data Training</h3>
@@ -399,6 +402,8 @@
         <li><code>VIOL_CONF_THRESHOLD</code> &mdash; ambang violative utk YOLO/MobileNetV3 (default 0.70).</li>
         <li><code>CLIP_VIOL_THRESHOLD</code> &mdash; ambang jumlah skor violative utk CLIP (default 0.30).</li>
         <li><code>CLIP_VIOL_MARGIN</code> &mdash; rasio minimal skor violative terhadap skor aman utk CLIP (default 2.0).</li>
+        <li><code>HF_HOME</code> &mdash; folder cache Hugging Face untuk CLIP/SmolVLM agar model tidak diunduh ulang.</li>
+        <li><code>SMOLVLM_MAX_SIZE</code> &mdash; batas sisi terpanjang gambar untuk processor SmolVLM (default 1024).</li>
         <li><code>MODERASI_MODEL</code> &mdash; path model YOLO alternatif.</li>
       </ul>
 
@@ -406,6 +411,7 @@
       <ul>
         <li>Ambang 0.70 sengaja dibuat agar gambar yang ragu-ragu (mis. conf 0.68) tidak langsung DIMODERASI; di bawah ambang tetap dicek via OCR + keyword.</li>
         <li><b>Bottleneck OCR</b>: &plusmn;550 ms/gambar; engine visual jauh lebih cepat. OCR dilewati untuk YOLO/MobileNetV3/SmolVLM yang sudah violative, tetapi tetap dijalankan untuk CLIP violative agar konteks berita/edukasi bisa dikenali. SmolVLM sendiri paling lambat (&plusmn;20 dtk/gambar di CPU, &plusmn;1 GB bobot).</li>
+        <li><b>SmolVLM</b>: request pertama bisa terlihat sangat lama bila model belum ada di cache. Setelah cache tersedia, server tetap perlu memuat model saat pertama kali engine ini dipakai setelah restart.</li>
         <li>Dataset kecil &amp; noisy (scrape). Akurasi dapat naik dengan data lebih banyak, augmentasi, atau GPU.</li>
       </ul>
     </div>

@@ -5,7 +5,7 @@ pytesseract
 pillow
 httpx
 ultralytics
-# Opsional: hanya dibutuhkan saat MODERASI_VISUAL=clip (CLIP zero-shot) atau =smolvlm (SmolVLM2-256M).
+# Opsional: hanya dibutuhkan saat MODERASI_VISUAL=clip (CLIP zero-shot) atau =smolvlm (SmolVLM2-500M).
 # Install via: pip install transformers num2words
 # transformers
 # num2words
