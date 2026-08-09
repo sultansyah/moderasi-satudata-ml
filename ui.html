@@ -447,7 +447,14 @@ curl -X POST "http://IP:8787/api/engines/default?engine=mobilenetv3"</code></pre
 
       <h3>Format Respons Moderasi</h3>
 <pre style="overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:.7rem .8rem;font-size:.8rem;line-height:1.5"><code>{
-  "ringkasan": { "total": 2, "dimoderasi": 1, "lolos": 1, "error": 0 },
+  "ringkasan": {
+    "total": 2,
+    "dimoderasi": 1,
+    "lolos": 1,
+    "error": 0,
+    "avg_elapsed_ms": 412.7,
+    "elapsed_ms": 835.4
+  },
   "results": [
     {
       "file": "foto.jpg",
@@ -458,6 +465,7 @@ curl -X POST "http://IP:8787/api/engines/default?engine=mobilenetv3"</code></pre
       "yolo_violative": true,
       "ocr_text": "",
       "keyword_hits": [],
+      "elapsed_ms": 378.2,
       "keputusan": "DIMODERASI",
       "alasan": ["MOBILENETV3 deteksi kelas violative: obat_aborsi (conf 0.97); OCR dilewati (visual sudah violative)"]
     }
@@ -469,6 +477,7 @@ curl -X POST "http://IP:8787/api/engines/default?engine=mobilenetv3"</code></pre
         <li><code>keputusan</code>: <code>LOLOS</code> | <code>DIMODERASI</code> | <code>ERROR</code> (file bukan gambar valid).</li>
         <li><code>visual_engine</code>: engine yang benar-benar dipakai untuk gambar itu (<code>yolo</code>|<code>clip</code>|<code>mobilenetv3</code>).</li>
         <li><code>yolo_violative</code>: <code>true</code> = kelas violative + conf &ge; ambang (visual sudah memutuskan DIMODERASI).</li>
+        <li><code>elapsed_ms</code>: waktu proses request pada <code>ringkasan</code>, dan waktu proses per gambar pada tiap item <code>results</code>.</li>
         <li>Query <code>?visual=</code> hanya berlaku untuk request itu; default server tetap dipakai bila tidak dikirim.</li>
         <li>Engine yang belum tersedia (mis. CLIP tanpa <code>transformers</code>) &rarr; HTTP 400.</li>
       </ul>
@@ -514,6 +523,11 @@ curl -X POST "http://IP:8787/api/engines/default?engine=mobilenetv3"</code></pre
   function uid() { return (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36)); }
   function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
   function size(n) { if (n < 1024) return n + " B"; if (n < 1048576) return (n / 1024).toFixed(0) + " KB"; return (n / 1048576).toFixed(1) + " MB"; }
+  function fmtMs(ms) {
+    const n = Number(ms || 0);
+    if (n >= 1000) return (n / 1000).toFixed(n >= 10000 ? 1 : 2) + " dtk";
+    return n.toFixed(n >= 100 ? 0 : 1) + " ms";
+  }
   function setStatus(msg, cls) { status.textContent = msg || ""; status.className = "status" + (cls ? " " + cls : ""); }
 
   /* ---------- pick + drag ---------- */
@@ -611,8 +625,8 @@ curl -X POST "http://IP:8787/api/engines/default?engine=mobilenetv3"</code></pre
       try { j = await resp.json(); } catch { j = { detail: "Respons server bukan JSON" }; }
       if (!resp.ok) throw new Error((j && j.detail) ? j.detail : "HTTP " + resp.status);
 
-      setStatus("Selesai. " + valid.length + " gambar diproses.", "ok");
       renderResults(j);
+      setStatus("Selesai. " + valid.length + " gambar diproses dalam " + fmtMs(j.ringkasan && j.ringkasan.elapsed_ms) + ".", "ok");
     } catch (err) {
       setStatus("Gagal memproses: " + err.message + ". Periksa apakah server berjalan.", "err");
     } finally {
@@ -651,16 +665,16 @@ curl -X POST "http://IP:8787/api/engines/default?engine=mobilenetv3"</code></pre
       <div class="sum-card lolos"><b>${s.lolos}</b><span>LOLOS</span></div>
       <div class="sum-card dimoderasi"><b>${s.dimoderasi}</b><span>DIMODERASI</span></div>
       <div class="sum-card error"><b>${s.error}</b><span>ERROR</span></div>
-      <div class="sum-card"><b>${s.total}</b><span>TOTAL</span></div>
+      <div class="sum-card"><b>${fmtMs(s.elapsed_ms)}</b><span>WAKTU TOTAL</span></div>
     </div>`;
 
     html += `<div class="filters">${pill("semua", "Semua")}${pill("lolos", "Lolos")}${pill("dimoderasi", "Dimoderasi")}${pill("error", "Error")}</div>`;
 
     html += `<div class="table-wrap"><table>
-      <thead><tr><th scope="col">Gambar</th><th scope="col">File</th><th scope="col">Status</th><th scope="col">Visual</th><th scope="col">Keyword</th><th scope="col">Alasan</th></tr></thead>
+      <thead><tr><th scope="col">Gambar</th><th scope="col">File</th><th scope="col">Status</th><th scope="col">Visual</th><th scope="col">Waktu</th><th scope="col">Keyword</th><th scope="col">Alasan</th></tr></thead>
       <tbody>`;
     if (!rows.length) {
-      html += `<tr><td colspan="6" class="muted" style="text-align:center;padding:1.2rem">Tidak ada hasil pada filter ini.</td></tr>`;
+      html += `<tr><td colspan="7" class="muted" style="text-align:center;padding:1.2rem">Tidak ada hasil pada filter ini.</td></tr>`;
     }
     rows.forEach((it, i) => {
       const kw = (it.keyword_hits || []).map(k => `<span class="kw">${esc(k)}</span>`).join("") || "&mdash;";
@@ -675,7 +689,7 @@ curl -X POST "http://IP:8787/api/engines/default?engine=mobilenetv3"</code></pre
         <td>${thumb}</td>
         <td><div class="fn" title="${esc(it.filename)}">${esc(it.filename)}</div></td>
         <td><span class="badge ${it._cls}">${esc(it.keputusan)}</span></td>
-        <td>${yolo}</td><td>${kw}</td><td class="alasan">${alasan}</td>
+        <td>${yolo}</td><td>${fmtMs(it.elapsed_ms)}</td><td>${kw}</td><td class="alasan">${alasan}</td>
       </tr>`;
     });
     html += `</tbody></table></div>`;

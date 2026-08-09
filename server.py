@@ -1,6 +1,7 @@
 import os
 import sys
 import tempfile
+import time
 import uuid
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
@@ -46,6 +47,7 @@ def _simpan_temp(name, data):
 
 
 def _moderate_bytes(name, data, visual=None):
+    t0 = time.perf_counter()
     tmp = _simpan_temp(name, data)
     try:
         try:
@@ -62,10 +64,12 @@ def _moderate_bytes(name, data, visual=None):
                 "yolo_conf": None,
                 "keyword_hits": [],
                 "ocr_text": "",
+                "elapsed_ms": round((time.perf_counter() - t0) * 1000, 1),
             }
         result = moderasi_satu_gambar(get_model(), tmp, visual=visual)
         result["file"] = name
         result["filename"] = name
+        result["elapsed_ms"] = round((time.perf_counter() - t0) * 1000, 1)
         return result
     finally:
         try:
@@ -87,11 +91,14 @@ def _resolve_visual(visual):
 
 def _ringkasan(results):
     c = Counter(r["keputusan"] for r in results)
+    total_elapsed = sum(float(r.get("elapsed_ms") or 0) for r in results)
+    avg_elapsed = total_elapsed / len(results) if results else 0
     return {
         "total": len(results),
         "dimoderasi": c.get("DIMODERASI", 0),
         "lolos": c.get("LOLOS", 0),
         "error": c.get("ERROR", 0),
+        "avg_elapsed_ms": round(avg_elapsed, 1),
     }
 
 
@@ -106,17 +113,21 @@ def index():
 @app.post("/api/moderasi/satu")
 async def moderasi_satu(file: UploadFile = File(...), visual: str = Query(None)):
     """Moderasi SATU gambar. Upload via multipart form (field: file). Opsional ?visual=yolo|clip|mobilenetv3"""
+    t0 = time.perf_counter()
     _resolve_visual(visual)
     if not file.filename:
         raise HTTPException(status_code=400, detail="Nama file kosong")
     data = await file.read()
     result = _moderate_bytes(file.filename, data, visual)
-    return {"ringkasan": _ringkasan([result]), "results": [result]}
+    ringkasan = _ringkasan([result])
+    ringkasan["elapsed_ms"] = round((time.perf_counter() - t0) * 1000, 1)
+    return {"ringkasan": ringkasan, "results": [result]}
 
 
 @app.post("/api/moderasi/bulk")
 async def moderasi_bulk(files: list[UploadFile] = File(...), visual: str = Query(None)):
     """Moderasi BANYAK gambar sekaligus. Upload via multipart form (field: files). Opsional ?visual=yolo|clip|mobilenetv3"""
+    t0 = time.perf_counter()
     _resolve_visual(visual)
     if not files:
         raise HTTPException(status_code=400, detail="Tidak ada file diunggah")
@@ -134,7 +145,9 @@ async def moderasi_bulk(files: list[UploadFile] = File(...), visual: str = Query
         with ThreadPoolExecutor(max_workers=min(MAX_WORKERS, len(items))) as ex:
             results = list(ex.map(lambda t: _moderate_bytes(*t, visual), items))
 
-    return {"ringkasan": _ringkasan(results), "results": results}
+    ringkasan = _ringkasan(results)
+    ringkasan["elapsed_ms"] = round((time.perf_counter() - t0) * 1000, 1)
+    return {"ringkasan": ringkasan, "results": results}
 
 
 @app.get("/api/engines")

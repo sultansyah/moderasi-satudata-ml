@@ -70,6 +70,12 @@ uv run python server.py --host 127.0.0.1 --port 8787
 - `GET  /api/engines` — daftar engine visual
 - `GET  /health` — status server & kelas model
 
+Respons moderasi menyertakan waktu proses:
+
+- `ringkasan.elapsed_ms` — total waktu request dalam milidetik.
+- `ringkasan.avg_elapsed_ms` — rata-rata waktu proses per gambar.
+- `results[].elapsed_ms` — waktu proses tiap gambar.
+
 ## CLI Offline
 
 ```sh
