@@ -359,11 +359,14 @@ def keyword_hits(text_normalized):
     hits = []
     words = set(text_normalized.split())
     for kw in KEYWORDS_ALL:
-        if len(kw) <= 3:
-            if kw in words:
+        kw_norm = normalize(kw)
+        if not kw_norm:
+            continue
+        if len(kw_norm) <= 3:
+            if kw_norm in words:
                 hits.append(kw)
         else:
-            if kw in text_normalized:
+            if kw_norm in text_normalized:
                 hits.append(kw)
     return hits
 
@@ -435,6 +438,15 @@ TRANSACTION_KEYWORDS = [
     "terbatas",
 ]
 
+CONTACT_RE = re.compile(r"\b(?:wa|whatsapp|hubungi|kontak|telp|telepon|sms)\b|(?:\+?62|0)8\d{7,12}\b")
+
+ABORTION_AD_SIGNAL_GROUPS = {
+    "masalah": ["mengatasi masalah", "mengatasi masalah anda"],
+    "hamil": ["bisa hamil kembali", "hamil kembali"],
+    "risiko": ["aman tanpa resiko", "aman tanpa risiko", "tanpa resiko", "tanpa risiko"],
+    "klaim": ["100 aman", "100 ampuh", "dijamin aman", "dijamin tuntas"],
+}
+
 
 def _phrase_hits(text_normalized, phrases):
     hits = []
@@ -473,6 +485,30 @@ def _public_interest_context(text_normalized):
     has_strong_public = any(h in strong_public_markers for h in public_hits)
     is_public_interest = len(public_hits) >= 2 and has_strong_public
     return is_public_interest, public_hits, transaction_hits
+
+
+def _covert_abortion_ad_hits(text_normalized, transaction_hits):
+    contact_hit = bool(CONTACT_RE.search(text_normalized))
+    if not (contact_hit or transaction_hits):
+        return []
+
+    grouped_hits = {}
+    for group, phrases in ABORTION_AD_SIGNAL_GROUPS.items():
+        hits = _phrase_hits(text_normalized, phrases)
+        if hits:
+            grouped_hits[group] = hits
+
+    # Jangan memoderasi hanya karena "hamil kembali + hubungi"; itu bisa konteks klinik
+    # fertilitas. Iklan terselubung minimal perlu 2 kelompok sinyal: masalah/hamil/risiko/klaim.
+    if "hamil" not in grouped_hits or len(grouped_hits) < 2:
+        return []
+
+    hits = ["indikasi iklan aborsi terselubung"]
+    for group in ("masalah", "hamil", "risiko", "klaim"):
+        hits.extend(grouped_hits.get(group, [])[:2])
+    if contact_hit:
+        hits.append("kontak/nomor/wa")
+    return hits
 
 
 def moderasi_satu_gambar(model, image_path, lang="ind+eng", visual=None):
@@ -515,12 +551,13 @@ def moderasi_satu_gambar(model, image_path, lang="ind+eng", visual=None):
         if raw:
             norm = normalize(raw)
             public_context, context_hits, transaction_hits = _public_interest_context(norm)
+            covert_hits = _covert_abortion_ad_hits(norm, transaction_hits)
             if context_hits:
                 result["context_hits"] = context_hits[:20]
             if transaction_hits:
                 result["transaction_hits"] = transaction_hits[:20]
 
-            if public_context:
+            if public_context and not covert_hits:
                 result["keyword_context_exempt"] = True
                 result["alasan"].append(
                     "Konteks berita/peringatan terdeteksi: "
@@ -531,12 +568,19 @@ def moderasi_satu_gambar(model, image_path, lang="ind+eng", visual=None):
                     result["alasan"].append("Vonis CLIP ditahan karena konteks publik/edukatif")
 
             hits = keyword_hits(norm)
+            if covert_hits:
+                hits.extend(covert_hits)
             if hits:
                 result["keyword_hits"] = hits[:20]
-                if public_context:
+                if public_context and not covert_hits:
                     result["alasan"].append(
                         "OCR match keyword tetapi dikecualikan karena konteks: "
                         + ", ".join(hits[:10])
+                    )
+                elif covert_hits:
+                    result["alasan"].append(
+                        "OCR mendeteksi pola iklan aborsi terselubung: "
+                        + ", ".join(covert_hits[:8])
                     )
                 else:
                     result["alasan"].append(f"OCR match keyword: {', '.join(hits[:10])}")
