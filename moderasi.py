@@ -55,35 +55,38 @@ def visual_engine_available(engine):
 
 CLIP_MODEL_ID = "openai/clip-vit-base-patch32"
 CLIP_VIOLATIVE_CONCEPTS = [
-    ("obat_aborsi", "kemasan obat penggugur kandungan"),
-    ("obat_aborsi", "pil atau tablet obat aborsi"),
-    ("obat_aborsi", "obat cytotec atau misoprostol"),
-    ("obat_aborsi", "produk obat aborsi yang dijual ilegal"),
-    ("obat_aborsi", "iklan jual obat aborsi"),
-    ("obat_aborsi", "a photo of an abortion pill or its packaging"),
-    ("obat_aborsi", "a photo of an advertisement for abortion pills"),
-    ("rokok", "a photo of a cigarette or a pack of cigarettes"),
-    ("alkohol", "a photo of a bottle of alcohol, beer, or wine"),
-    ("narkoba", "a photo of marijuana or illegal drugs"),
-    ("dewasa", "a photo of nudity or explicit sexual content"),
-    ("dewasa", "a photo of a vulgar or pornographic image"),
-    ("kekerasan", "a photo of blood, violence, or a wound"),
-    ("senjata", "a photo of a gun, pistol, or sharp weapon"),
-    ("judi", "a photo of a slot machine or casino gambling"),
-    ("obat_keras", "a photo of medicine blister packs or prescription drugs"),
-    ("penipuan", "a photo of a scam advertisement or fake job vacancy poster"),
-    ("judi", "a photo of an online gambling or casino advertisement"),
-    ("judi", "a photo of a slot machine or slot game interface"),
-    ("judi", "a photo of a betting advertisement for a bookmaker website"),
-    ("judi", "a photo of the greek god zeus with lightning from a slot game"),
-    ("judi", "a colorful slot game grid with gems, coins, and multipliers"),
-    ("judi", "a photo of a sports betting or lottery advertisement"),
+    ("obat_aborsi", "iklan yang menjual obat aborsi dengan harga atau kontak pemesanan"),
+    ("obat_aborsi", "promosi jual obat cytotec atau misoprostol"),
+    ("obat_aborsi", "poster jual obat penggugur kandungan"),
+    ("obat_aborsi", "an advertisement selling abortion pills with price or contact number"),
+    ("obat_aborsi", "a promotional poster for buying abortion pills"),
+    ("boraks", "iklan yang menjual boraks atau formalin untuk makanan"),
+    ("boraks", "promosi jual bahan kimia boraks dengan harga atau kontak pemesanan"),
+    ("boraks", "an advertisement selling borax or formalin as a food additive"),
+    ("judi", "iklan judi online yang mengajak daftar atau deposit"),
+    ("judi", "banner promosi slot gacor, maxwin, bonus, atau situs taruhan"),
+    ("judi", "a gambling advertisement asking users to register or deposit money"),
+    ("judi", "a promotional online casino or slot betting banner"),
+    ("rokok", "a promotional advertisement selling cigarettes"),
+    ("alkohol", "a promotional advertisement selling alcohol, beer, or wine"),
+    ("narkoba", "an advertisement selling marijuana or illegal drugs"),
+    ("dewasa", "a promotional pornographic or explicit sexual image"),
+    ("kekerasan", "a graphic image of blood, violence, or a wound"),
+    ("senjata", "an advertisement selling a gun, pistol, or sharp weapon"),
+    ("obat_keras", "an advertisement selling prescription drugs without context"),
+    ("penipuan", "a scam advertisement or fake job vacancy poster"),
 ]
 CLIP_SAFE_CONCEPTS = [
     ("dokumen", "dokumen resmi, surat, atau sertifikat"),
     ("dokumen", "a photo of a document, paper, or certificate"),
     ("poster", "poster acara, seminar, atau edukasi"),
     ("poster", "a photo of a poster or banner"),
+    ("berita", "ilustrasi berita tentang spam, peretasan, atau konten ilegal"),
+    ("berita", "a news illustration about cyber spam, hacked websites, or illegal content"),
+    ("edukasi", "poster edukasi pemerintah yang memperingatkan bahaya boraks, obat ilegal, atau judi online"),
+    ("edukasi", "a public warning poster about the dangers of borax, illegal medicine, or online gambling"),
+    ("edukasi", "a government campaign poster against illegal drugs, borax, or gambling"),
+    ("edukasi", "an anti gambling public service announcement telling people to stop gambling"),
     ("sertifikat", "sertifikat penghargaan atau pelatihan"),
     ("undangan", "undangan pernikahan atau surat undangan"),
     ("promo", "brosur, banner, atau flyer promosi"),
@@ -289,6 +292,113 @@ def keyword_hits(text_normalized):
     return hits
 
 
+PUBLIC_INTEREST_KEYWORDS = [
+    "berita",
+    "berita nasional",
+    "skandal",
+    "siber",
+    "cyber",
+    "spam",
+    "pemerintah",
+    "kominfo",
+    "investigasi",
+    "keamanan data",
+    "dipertanyakan",
+    "publik resah",
+    "desakan",
+    "peringatan",
+    "waspada",
+    "hati hati",
+    "bahaya",
+    "dampak",
+    "edukasi",
+    "sosialisasi",
+    "kampanye",
+    "pencegahan",
+    "cegah",
+    "larangan",
+    "anti judi",
+    "jangan judi",
+    "jangan biarkan",
+    "berhenti sekarang",
+    "konseling",
+    "adiksi",
+    "lapor",
+    "imbauan",
+    "edaran",
+    "informasi",
+]
+
+TRANSACTION_KEYWORDS = [
+    "jual",
+    "beli",
+    "order",
+    "pesan",
+    "pemesanan",
+    "stok",
+    "ready",
+    "harga",
+    "promo",
+    "diskon",
+    "wa",
+    "whatsapp",
+    "cod",
+    "kontak",
+    "hubungi",
+    "nomor",
+    "daftar",
+    "deposit",
+    "bonus",
+    "link",
+    "slot gacor",
+    "gacor",
+    "maxwin",
+    "terpercaya",
+    "tuntas",
+    "ampuh",
+    "terbatas",
+]
+
+
+def _phrase_hits(text_normalized, phrases):
+    hits = []
+    words = set(text_normalized.split())
+    for phrase in phrases:
+        phrase_norm = normalize(phrase)
+        if not phrase_norm:
+            continue
+        if len(phrase_norm) <= 3:
+            if phrase_norm in words:
+                hits.append(phrase)
+        elif phrase_norm in text_normalized:
+            hits.append(phrase)
+    return hits
+
+
+def _public_interest_context(text_normalized):
+    public_hits = _phrase_hits(text_normalized, PUBLIC_INTEREST_KEYWORDS)
+    transaction_hits = _phrase_hits(text_normalized, TRANSACTION_KEYWORDS)
+    strong_public_markers = {
+        "berita",
+        "berita nasional",
+        "peringatan",
+        "edukasi",
+        "sosialisasi",
+        "kampanye",
+        "pencegahan",
+        "anti judi",
+        "jangan judi",
+        "berhenti sekarang",
+        "konseling",
+        "investigasi",
+        "kominfo",
+        "pemerintah",
+    }
+    has_strong_public = any(h in strong_public_markers for h in public_hits)
+    is_public_interest = len(public_hits) >= 2 and has_strong_public
+    return is_public_interest, public_hits, transaction_hits
+
+
 def moderasi_satu_gambar(model, image_path, lang="ind+eng", visual=None):
     filename = os.path.basename(image_path)
     result = {
@@ -300,6 +410,9 @@ def moderasi_satu_gambar(model, image_path, lang="ind+eng", visual=None):
         "yolo_violative": False,
         "ocr_text": "",
         "keyword_hits": [],
+        "context_hits": [],
+        "transaction_hits": [],
+        "keyword_context_exempt": False,
         "keputusan": "LOLOS",
         "alasan": [],
     }
@@ -313,16 +426,41 @@ def moderasi_satu_gambar(model, image_path, lang="ind+eng", visual=None):
         result["yolo_violative"] = True
         result["alasan"].append(f"{engine.upper()} deteksi kelas violative: {cls_name} (conf {conf:.2f})")
 
-    # 2) Tesseract OCR — dilewati jika visual sudah violative (keputusan sudah DIMODERASI)
-    if not result["yolo_violative"]:
+    # 2) Tesseract OCR. Untuk CLIP, OCR tetap dibaca agar poster berita/peringatan
+    # tidak langsung dihukum hanya karena ada objek/kata sensitif di gambar.
+    should_run_ocr = not result["yolo_violative"] or engine == "clip"
+    if should_run_ocr:
         raw = ocr_text(image_path, lang=lang)
         result["ocr_text"] = raw[:500]
+        public_context = False
         if raw:
             norm = normalize(raw)
+            public_context, context_hits, transaction_hits = _public_interest_context(norm)
+            if context_hits:
+                result["context_hits"] = context_hits[:20]
+            if transaction_hits:
+                result["transaction_hits"] = transaction_hits[:20]
+
+            if public_context:
+                result["keyword_context_exempt"] = True
+                result["alasan"].append(
+                    "Konteks berita/peringatan terdeteksi: "
+                    + ", ".join(context_hits[:8])
+                )
+                if engine == "clip" and result["yolo_violative"]:
+                    result["yolo_violative"] = False
+                    result["alasan"].append("Vonis CLIP ditahan karena konteks publik/edukatif")
+
             hits = keyword_hits(norm)
             if hits:
                 result["keyword_hits"] = hits[:20]
-                result["alasan"].append(f"OCR match keyword: {', '.join(hits[:10])}")
+                if public_context:
+                    result["alasan"].append(
+                        "OCR match keyword tetapi dikecualikan karena konteks: "
+                        + ", ".join(hits[:10])
+                    )
+                else:
+                    result["alasan"].append(f"OCR match keyword: {', '.join(hits[:10])}")
 
         # 3) Filename check (fallback kalau OCR kosong)
         if not result["keyword_hits"]:
@@ -334,7 +472,8 @@ def moderasi_satu_gambar(model, image_path, lang="ind+eng", visual=None):
         result["alasan"].append("OCR dilewati (visual sudah violative)")
 
     # Keputusan akhir
-    if result["yolo_violative"] or result["keyword_hits"]:
+    effective_keyword_hit = result["keyword_hits"] and not result["keyword_context_exempt"]
+    if result["yolo_violative"] or effective_keyword_hit:
         result["keputusan"] = "DIMODERASI"
     return result
 
