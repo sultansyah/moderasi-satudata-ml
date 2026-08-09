@@ -16,12 +16,12 @@ fi
 APP_DIR="/opt/moderasi"
 SERVICE="moderasi.service"
 PORT="${PORT:-8787}"
-# Engine visual default (yolo | clip | mobilenetv3). Set sekali di sini, disuntikkan
+# Engine visual default (yolo | clip | mobilenetv3 | smolvlm). Set sekali di sini, disuntikkan
 # ke systemd service:  sudo VISUAL_ENGINE=mobilenetv3 bash deploy/deploy.sh
 VISUAL_ENGINE="${VISUAL_ENGINE:-yolo}"
 case "$VISUAL_ENGINE" in
-  yolo|clip|mobilenetv3) ;;
-  *) echo "[ERROR] VISUAL_ENGINE tidak valid: $VISUAL_ENGINE (pilihan: yolo, clip, mobilenetv3)"; exit 1 ;;
+  yolo|clip|mobilenetv3|smolvlm) ;;
+  *) echo "[ERROR] VISUAL_ENGINE tidak valid: $VISUAL_ENGINE (pilihan: yolo, clip, mobilenetv3, smolvlm)"; exit 1 ;;
 esac
 
 if [[ "$EUID" -ne 0 ]]; then
@@ -69,10 +69,13 @@ pip install -q torch torchvision --index-url https://download.pytorch.org/whl/cp
 
 echo "==> [5/7] Install dependensi aplikasi"
 pip install -q -r requirements.txt
-# CLIP zero-shot butuh transformers (hanya jika engine default = clip)
-if [[ "$VISUAL_ENGINE" == "clip" ]]; then
-  echo "    (engine=clip) install transformers + unduh bobot CLIP (~350MB)..."
+# Engine berbasis transformers (clip / smolvlm) butuh transformers
+if [[ "$VISUAL_ENGINE" == "clip" || "$VISUAL_ENGINE" == "smolvlm" ]]; then
+  echo "    (engine=$VISUAL_ENGINE) install transformers..."
   pip install -q transformers
+fi
+if [[ "$VISUAL_ENGINE" == "clip" ]]; then
+  echo "    (engine=clip) unduh bobot CLIP (~350MB)..."
   python - <<'PY'
 import os
 os.environ.setdefault("HF_HOME", "/opt/moderasi/hf_cache")
@@ -80,6 +83,18 @@ from transformers import CLIPModel, CLIPProcessor
 CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
 CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 print("    CLIP model siap.")
+PY
+fi
+if [[ "$VISUAL_ENGINE" == "smolvlm" ]]; then
+  echo "    (engine=smolvlm) install transformers + num2words, unduh bobot (~1GB)..."
+  pip install -q transformers num2words
+  python - <<'PY'
+import os
+os.environ.setdefault("HF_HOME", "/opt/moderasi/hf_cache")
+from transformers import AutoModelForImageTextToText, AutoProcessor
+AutoProcessor.from_pretrained("HuggingFaceTB/SmolVLM2-500M-Instruct")
+AutoModelForImageTextToText.from_pretrained("HuggingFaceTB/SmolVLM2-500M-Instruct")
+print("    SmolVLM model siap.")
 PY
 fi
 

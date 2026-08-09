@@ -84,7 +84,7 @@ def _resolve_visual(visual):
     visual = visual.strip().lower()
     if visual not in VALID_VISUAL_ENGINES:
         raise HTTPException(status_code=400,
-                            detail=f"Engine visual tidak valid: {visual} (pilihan: yolo, clip, mobilenetv3)")
+                            detail=f"Engine visual tidak valid: {visual} (pilihan: {', '.join(VALID_VISUAL_ENGINES)})")
     if not visual_engine_available(visual):
         raise HTTPException(status_code=400, detail=f"Engine '{visual}' belum tersedia di server ini")
 
@@ -112,7 +112,7 @@ def index():
 
 @app.post("/api/moderasi/satu")
 async def moderasi_satu(file: UploadFile = File(...), visual: str = Query(None)):
-    """Moderasi SATU gambar. Upload via multipart form (field: file). Opsional ?visual=yolo|clip|mobilenetv3"""
+    """Moderasi SATU gambar. Upload via multipart form (field: file). Opsional ?visual=yolo|clip|mobilenetv3|smolvlm"""
     t0 = time.perf_counter()
     _resolve_visual(visual)
     if not file.filename:
@@ -126,7 +126,7 @@ async def moderasi_satu(file: UploadFile = File(...), visual: str = Query(None))
 
 @app.post("/api/moderasi/bulk")
 async def moderasi_bulk(files: list[UploadFile] = File(...), visual: str = Query(None)):
-    """Moderasi BANYAK gambar sekaligus. Upload via multipart form (field: files). Opsional ?visual=yolo|clip|mobilenetv3"""
+    """Moderasi BANYAK gambar sekaligus. Upload via multipart form (field: files). Opsional ?visual=yolo|clip|mobilenetv3|smolvlm"""
     t0 = time.perf_counter()
     _resolve_visual(visual)
     if not files:
@@ -164,10 +164,10 @@ def get_engines():
 
 @app.post("/api/engines/default")
 def set_default_engine(engine: str = Query(...)):
-    """Ganti engine visual default server. ?engine=yolo|clip|mobilenetv3"""
+    """Ganti engine visual default server. ?engine=yolo|clip|mobilenetv3|smolvlm"""
     if not set_visual_engine(engine):
         raise HTTPException(status_code=400,
-                            detail=f"Engine visual tidak valid: {engine} (pilihan: yolo, clip, mobilenetv3)")
+                            detail=f"Engine visual tidak valid: {engine} (pilihan: {', '.join(VALID_VISUAL_ENGINES)})")
     return get_engines()
 
 
@@ -194,7 +194,7 @@ def main():
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8787)
     ap.add_argument("--model", default=None, help="Path model YOLO (override default)")
-    ap.add_argument("--visual", default=None, choices=["yolo", "clip", "mobilenetv3"], help="Engine visual: yolo | clip | mobilenetv3 (default: env MODERASI_VISUAL atau yolo)")
+    ap.add_argument("--visual", default=None, choices=list(VALID_VISUAL_ENGINES), help=f"Engine visual: {' | '.join(VALID_VISUAL_ENGINES)} (default: env MODERASI_VISUAL atau yolo)")
     args = ap.parse_args()
 
     if args.model:

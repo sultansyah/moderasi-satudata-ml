@@ -23,9 +23,10 @@ KELAS_VIOLATIVE = ["obat_aborsi"]
 # Di bawah ambang, gambar TIDAK langsung DIMODERASI — dilanjut OCR + keyword.
 VIOL_CONF_THRESHOLD = float(os.environ.get("VIOL_CONF_THRESHOLD", "0.70"))
 
-# Engine klasifikasi visual: "yolo" (default, lama), "clip" (zero-shot), atau "mobilenetv3".
+# Engine klasifikasi visual: "yolo" (default, lama), "clip" (zero-shot),
+# "mobilenetv3", atau "smolvlm" (VLM SmolVLM2-256M).
 # Bisa diganti via env MODERASI_VISUAL, argumen --visual, atau runtime (set_visual_engine).
-VALID_VISUAL_ENGINES = ("yolo", "clip", "mobilenetv3")
+VALID_VISUAL_ENGINES = ("yolo", "clip", "mobilenetv3", "smolvlm")
 VISUAL_ENGINE = os.environ.get("MODERASI_VISUAL", "yolo").strip().lower()
 
 
@@ -43,7 +44,7 @@ def visual_engine_available(engine):
     engine = engine.strip().lower()
     if engine == "yolo":
         return True
-    if engine == "clip":
+    if engine in ("clip", "smolvlm"):
         try:
             import transformers  # noqa: F401
             return True
@@ -153,6 +154,75 @@ def _clip_classify(image_path):
     return cls_name, round(float(conf), 4), violative
 
 
+SMOLVLM_MODEL_ID = "HuggingFaceTB/SmolVLM2-500M-Instruct"
+SMOLVLM_PROMPT = "Classify this image: ILLEGAL_AD, PUBLIC_INFO, or NORMAL."
+
+_smolvlm_model = None
+_smolvlm_processor = None
+
+
+def _load_smolvlm():
+    global _smolvlm_model, _smolvlm_processor
+    if _smolvlm_model is None:
+        import torch
+        from transformers import AutoProcessor
+        from transformers import AutoModelForImageTextToText as _AutoVLM
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
+        _smolvlm_processor = AutoProcessor.from_pretrained(
+            SMOLVLM_MODEL_ID, size={"longest_edge": int(os.environ.get("SMOLVLM_MAX_SIZE", "1024"))}
+        )
+        _smolvlm_model = _AutoVLM.from_pretrained(
+            SMOLVLM_MODEL_ID, dtype=dtype
+        ).to(device)
+        _smolvlm_model.eval()
+    return _smolvlm_model, _smolvlm_processor
+
+
+def _smolvlm_classify(image_path):
+    import torch
+    model, proc = _load_smolvlm()
+    image = Image.open(image_path).convert("RGB")
+    messages = [
+        {"role": "user", "content": [
+            {"type": "image"},
+            {"type": "text", "text": SMOLVLM_PROMPT},
+        ]},
+    ]
+    prompt = proc.apply_chat_template(messages, add_generation_prompt=True)
+    inputs = proc(text=prompt, images=[image])
+    for k in ("input_ids", "attention_mask"):
+        inputs[k] = torch.tensor(inputs[k])
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    inputs = {k: v.to(device) for k, v in inputs.items()}
+    with torch.no_grad():
+        generated = model.generate(**inputs, max_new_tokens=16, do_sample=False,
+                                   pad_token_id=proc.tokenizer.eos_token_id)
+    output_ids = generated[0][inputs["input_ids"].shape[1]:]
+    answer = proc.batch_decode(output_ids.unsqueeze(0), skip_special_tokens=True)[0].strip()
+    upper = answer.upper()
+    cats = []
+    if "ILLEGAL_AD" in upper:
+        cats.append("ILLEGAL_AD")
+    if "PUBLIC_INFO" in upper:
+        cats.append("PUBLIC_INFO")
+    if "NORMAL" in upper:
+        cats.append("NORMAL")
+    if len(cats) == 1:
+        verdict = cats[0]
+    elif not cats:
+        if "ILLEGAL" in upper:
+            verdict = "ILLEGAL_AD"
+        elif any(m in upper for m in ("PUBLIC", "NEWS", "WARNING", "EDUCAT", "CAMPAIGN")):
+            verdict = "PUBLIC_INFO"
+        else:
+            verdict = "NORMAL"
+    else:
+        verdict = "NORMAL"
+    violative = verdict == "ILLEGAL_AD"
+    return verdict, None, violative, answer
+
+
 MOBILENETV3_MODEL = os.path.join(BASE, "models", "mobilenetv3_best.pt")
 IMGNET_MEAN = [0.485, 0.456, 0.406]
 IMGNET_STD = [0.229, 0.224, 0.225]
@@ -198,16 +268,22 @@ def _mobilenetv3_classify(image_path):
 
 
 def _visual_classify(model, image_path, engine=None):
-    """Klasifikasi visual. Mengembalikan (cls_name, conf, violative, engine)."""
+    """Klasifikasi visual. Mengembalikan (cls_name, conf, violative, engine, detail)."""
     engine = (engine or VISUAL_ENGINE).strip().lower()
     if engine == "clip":
         try:
-            return (*_clip_classify(image_path), "clip")
+            return (*_clip_classify(image_path), "clip", None)
         except Exception as e:
             print(f"[WARN] CLIP gagal ({e}); fallback ke YOLO.")
+    if engine == "smolvlm":
+        try:
+            cls_name, conf, violative, answer = _smolvlm_classify(image_path)
+            return cls_name, conf, violative, "smolvlm", answer
+        except Exception as e:
+            print(f"[WARN] SmolVLM gagal ({e}); fallback ke YOLO.")
     if engine == "mobilenetv3":
         try:
-            return (*_mobilenetv3_classify(image_path), "mobilenetv3")
+            return (*_mobilenetv3_classify(image_path), "mobilenetv3", None)
         except Exception as e:
             print(f"[WARN] MobileNetV3 gagal ({e}); fallback ke YOLO.")
     preds = model.predict(image_path, verbose=False)
@@ -217,8 +293,8 @@ def _visual_classify(model, image_path, engine=None):
             cls_name = model.names[int(p.probs.top1)]
             conf = round(float(p.probs.top1conf), 4)
             violative = cls_name in KELAS_VIOLATIVE and conf >= VIOL_CONF_THRESHOLD
-            return cls_name, conf, violative, "yolo"
-    return None, None, False, "yolo"
+            return cls_name, conf, violative, "yolo", None
+    return None, None, False, "yolo", None
 
 
 def setup_tesseract():
@@ -417,14 +493,17 @@ def moderasi_satu_gambar(model, image_path, lang="ind+eng", visual=None):
         "alasan": [],
     }
 
-    # 1) Visual classification (CLIP zero-shot, MobileNetV3, atau YOLO)
-    cls_name, conf, violative, engine = _visual_classify(model, image_path, engine=visual)
+    # 1) Visual classification (CLIP zero-shot, SmolVLM, MobileNetV3, atau YOLO)
+    cls_name, conf, violative, engine, detail = _visual_classify(model, image_path, engine=visual)
     result["visual_engine"] = engine
     result["yolo_class"] = cls_name
     result["yolo_conf"] = conf
     if violative:
         result["yolo_violative"] = True
-        result["alasan"].append(f"{engine.upper()} deteksi kelas violative: {cls_name} (conf {conf:.2f})")
+        if engine == "smolvlm":
+            result["alasan"].append(f"SMOLVLM menilai ILLEGAL_AD: {detail}")
+        else:
+            result["alasan"].append(f"{engine.upper()} deteksi kelas violative: {cls_name} (conf {conf:.2f})")
 
     # 2) Tesseract OCR. Untuk CLIP, OCR tetap dibaca agar poster berita/peringatan
     # tidak langsung dihukum hanya karena ada objek/kata sensitif di gambar.
@@ -482,7 +561,7 @@ def main():
     ap = argparse.ArgumentParser(description="Sistem Moderasi Gambar Otomatis")
     ap.add_argument("input", nargs="+", help="Path gambar atau folder")
     ap.add_argument("--model", default=None, help="Path model YOLO (default: best.pt dari training)")
-    ap.add_argument("--visual", default=None, choices=["yolo", "clip", "mobilenetv3"], help="Engine visual: yolo | clip | mobilenetv3 (default: env MODERASI_VISUAL atau yolo)")
+    ap.add_argument("--visual", default=None, choices=list(VALID_VISUAL_ENGINES), help=f"Engine visual: {' | '.join(VALID_VISUAL_ENGINES)} (default: env MODERASI_VISUAL atau yolo)")
     ap.add_argument("--lang", default="ind+eng", help="Bahasa OCR Tesseract (default: ind+eng)")
     ap.add_argument("--json", action="store_true", help="Output JSON ke konsol")
     args = ap.parse_args()
@@ -518,7 +597,8 @@ def main():
         summary[r["keputusan"]] += 1
         status = "[DIMODERASI]" if r["keputusan"] == "DIMODERASI" else "[LOLOS]"
         print(f"{status} {os.path.basename(f)}")
-        print(f"   {r['visual_engine'].upper()} : {r['yolo_class']} (conf {r['yolo_conf']})")
+        conf_str = f" (conf {r['yolo_conf']:.2f})" if r["yolo_conf"] is not None else ""
+        print(f"   {r['visual_engine'].upper()} : {r['yolo_class']}{conf_str}")
         if r["keyword_hits"]:
             print(f"   KEY  : {', '.join(r['keyword_hits'][:8])}")
         if r["alasan"]:

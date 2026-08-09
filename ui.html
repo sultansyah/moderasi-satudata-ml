@@ -259,6 +259,7 @@
           <option value="yolo">YOLO (cepat, bawaan)</option>
           <option value="mobilenetv3">MobileNetV3 (Colab)</option>
           <option value="clip">CLIP (zero-shot)</option>
+          <option value="smolvlm">SmolVLM2-500M (VLM)</option>
         </select>
       </label>
       <button class="btn" type="button" id="proses" disabled>Proses Moderasi</button>
@@ -338,22 +339,23 @@
         </div>
       </div>
       <h3>1. Engine Visual — Klasifikasi Gambar</h3>
-      <p>Tiga engine bisa dipilih dari dropdown <b>Engine visual</b> atau API (<code>?visual=...</code>):</p>
+      <p>Empat engine bisa dipilih dari dropdown <b>Engine visual</b> atau API (<code>?visual=...</code>):</p>
       <ul>
         <li><code>yolo</code> &mdash; YOLO11n-cls, bobot 3.2 MB, &plusmn;37 ms/gambar (tercepat).</li>
         <li><code>mobilenetv3</code> &mdash; MobileNetV3-Large, bobot &plusmn;16 MB, fine-tune 3 kelas di Google Colab (val_acc 0.85).</li>
         <li><code>clip</code> &mdash; CLIP ViT-B/32 zero-shot, bobot &plusmn;580 MB, tanpa training, paling tahan terhadap gambar di luar dataset (logo, iklan unik).</li>
+        <li><code>smolvlm</code> &mdash; SmolVLM2-500M, VLM yang memahami gambar <em>dan</em> teks di dalamnya; menilai langsung apakah gambar itu iklan ilegal, berita/edukasi, atau normal (bobot &plusmn;1 GB, lambat di CPU &mdash; &plusmn;20 detik per gambar).</li>
       </ul>
       <p>CLIP membandingkan gambar terhadap prompt violative yang fokus pada promosi/transaksi (jual, harga, kontak, daftar, deposit) dan prompt aman untuk berita, edukasi, peringatan publik, serta kampanye anti-judi/anti-konten ilegal. Keputusan awal violative jika <code>SUM(skor violative) &ge; CLIP_VIOL_THRESHOLD</code> <em>dan</em> <code>SUM(skor violative) &ge; CLIP_VIOL_MARGIN &times; SUM(skor aman)</code>.</p>
-      <p>Klasifikasi ke 3 kelas: <code>obat_aborsi</code> (violative), <code>normal</code>, <code>dokumen</code>. Untuk YOLO/MobileNetV3, prediksi violative dengan konfidensi &ge; <code>VIOL_CONF_THRESHOLD</code> (default 0.70) &rarr; langsung DIMODERASI dan OCR dilewati. Untuk CLIP, prediksi violative tetap dilanjutkan ke OCR + context gate agar poster berita/edukasi/peringatan tidak otomatis dihukum.</p>
+      <p>Klasifikasi ke 3 kelas: <code>obat_aborsi</code> (violative), <code>normal</code>, <code>dokumen</code>. Untuk YOLO/MobileNetV3, prediksi violative dengan konfidensi &ge; <code>VIOL_CONF_THRESHOLD</code> (default 0.70) &rarr; langsung DIMODERASI dan OCR dilewati. Untuk CLIP, prediksi violative tetap dilanjutkan ke OCR + context gate agar poster berita/edukasi/peringatan tidak otomatis dihukum. SmolVLM menghasilkan vonis sendiri (ILLEGAL_AD / PUBLIC_INFO / NORMAL) tanpa butuh OCR.</p>
       <h3>2. Tesseract OCR — Ekstraksi Teks</h3>
-      <p>Dijalankan bila visual tidak violative, visual masih ragu, atau engine yang dipakai adalah CLIP. Membaca teks dalam gambar (Indonesia + Inggris), menangkap nomor WhatsApp, kata kunci iklan ilegal, serta sinyal konteks berita/peringatan seperti pemerintah, investigasi, edukasi, jangan, berhenti, konseling, dan kampanye. Gambar besar di-resize otomatis ke maks. 1600px.</p>
+      <p>Dijalankan bila visual tidak violative, visual masih ragu, atau engine yang dipakai adalah CLIP (untuk SmolVLM sudah membaca teks internal, OCR hanya pelengkap bila vonisnya aman). Membaca teks dalam gambar (Indonesia + Inggris), menangkap nomor WhatsApp, kata kunci iklan ilegal, serta sinyal konteks berita/peringatan seperti pemerintah, investigasi, edukasi, jangan, berhenti, konseling, dan kampanye. Gambar besar di-resize otomatis ke maks. 1600px.</p>
       <h3>3. Keyword + Context Gate — Pencocokan Kata Kunci</h3>
       <p>Mencocokkan teks OCR dengan kata kunci blacklist (aborsi, cytotec, misoprostol, boraks, judi online, dsb.) sekaligus membedakan konteks promosi/transaksi dari berita/edukasi/peringatan. Teks dinormalisasi dulu (huruf kecil, simbol dibuang); nama file dipakai fallback bila OCR kosong.</p>
       <h3>4. Keputusan Akhir</h3>
-      <p><b style="color:var(--red)">DIMODERASI</b> bila <code>visual = violative</code> untuk YOLO/MobileNetV3, atau <code>keyword match</code> berada dalam konteks promosi/transaksi. <b style="color:var(--green)">LOLOS</b> bila keyword negatif, atau keyword muncul dalam konteks berita/edukasi/peringatan publik.</p>
+      <p><b style="color:var(--red)">DIMODERASI</b> bila <code>visual = violative</code> untuk YOLO/MobileNetV3/SmolVLM, atau <code>keyword match</code> berada dalam konteks promosi/transaksi. <b style="color:var(--green)">LOLOS</b> bila keyword negatif, atau keyword muncul dalam konteks berita/edukasi/peringatan publik.</p>
       <h3>5. Web Server (FastAPI)</h3>
-      <p>Endpoint <code>POST /api/moderasi/satu</code> (1 gambar) dan <code>POST /api/moderasi/bulk</code> (banyak, maks. 1000, paralel 4 thread), <code>GET /api/engines</code> (daftar engine + default), <code>POST /api/engines/default?engine=...</code> (set default). Engine bisa diatur per-request lewat <code>?visual=yolo|clip|mobilenetv3</code>. Respons JSON.</p>
+      <p>Endpoint <code>POST /api/moderasi/satu</code> (1 gambar) dan <code>POST /api/moderasi/bulk</code> (banyak, maks. 1000, paralel 4 thread), <code>GET /api/engines</code> (daftar engine + default), <code>POST /api/engines/default?engine=...</code> (set default). Engine bisa diatur per-request lewat <code>?visual=yolo|clip|mobilenetv3|smolvlm</code>. Respons JSON.</p>
     </div>
   </details>
 
@@ -393,7 +395,7 @@
 
       <h3>Konfigurasi (env)</h3>
       <ul>
-        <li><code>MODERASI_VISUAL</code> &mdash; engine default: <code>yolo</code> | <code>clip</code> | <code>mobilenetv3</code>.</li>
+        <li><code>MODERASI_VISUAL</code> &mdash; engine default: <code>yolo</code> | <code>clip</code> | <code>mobilenetv3</code> | <code>smolvlm</code>.</li>
         <li><code>VIOL_CONF_THRESHOLD</code> &mdash; ambang violative utk YOLO/MobileNetV3 (default 0.70).</li>
         <li><code>CLIP_VIOL_THRESHOLD</code> &mdash; ambang jumlah skor violative utk CLIP (default 0.30).</li>
         <li><code>CLIP_VIOL_MARGIN</code> &mdash; rasio minimal skor violative terhadap skor aman utk CLIP (default 2.0).</li>
@@ -403,7 +405,7 @@
       <h3>Keterbatasan &amp; Catatan</h3>
       <ul>
         <li>Ambang 0.70 sengaja dibuat agar gambar yang ragu-ragu (mis. conf 0.68) tidak langsung DIMODERASI; di bawah ambang tetap dicek via OCR + keyword.</li>
-        <li><b>Bottleneck OCR</b>: &plusmn;550 ms/gambar; engine visual jauh lebih cepat. OCR dilewati untuk YOLO/MobileNetV3 yang sudah violative, tetapi tetap dijalankan untuk CLIP violative agar konteks berita/edukasi bisa dikenali.</li>
+        <li><b>Bottleneck OCR</b>: &plusmn;550 ms/gambar; engine visual jauh lebih cepat. OCR dilewati untuk YOLO/MobileNetV3/SmolVLM yang sudah violative, tetapi tetap dijalankan untuk CLIP violative agar konteks berita/edukasi bisa dikenali. SmolVLM sendiri paling lambat (&plusmn;20 dtk/gambar di CPU, &plusmn;1 GB bobot).</li>
         <li>Dataset kecil &amp; noisy (scrape). Akurasi dapat naik dengan data lebih banyak, augmentasi, atau GPU.</li>
       </ul>
     </div>
@@ -425,7 +427,7 @@
           <tr><td style="padding:.35rem .5rem;border-bottom:1px solid var(--line)"><code>POST /api/moderasi/bulk</code></td><td style="padding:.35rem .5rem;border-bottom:1px solid var(--line)">Moderasi banyak gambar (maks. 1000). Field: <code>files</code>. Opsional <code>?visual=</code>.</td></tr>
           <tr><td style="padding:.35rem .5rem;border-bottom:1px solid var(--line)"><code>GET /api/keywords</code></td><td style="padding:.35rem .5rem;border-bottom:1px solid var(--line)">Daftar keyword blacklist (aborsi/boraks/umum).</td></tr>
           <tr><td style="padding:.35rem .5rem;border-bottom:1px solid var(--line)"><code>GET /api/engines</code></td><td style="padding:.35rem .5rem;border-bottom:1px solid var(--line)">Daftar engine visual + ketersediaan + engine default.</td></tr>
-          <tr><td style="padding:.35rem .5rem;border-bottom:1px solid var(--line)"><code>POST /api/engines/default?engine=</code></td><td style="padding:.35rem .5rem;border-bottom:1px solid var(--line)">Ganti engine default (<code>yolo</code>|<code>clip</code>|<code>mobilenetv3</code>).</td></tr>
+          <tr><td style="padding:.35rem .5rem;border-bottom:1px solid var(--line)"><code>POST /api/engines/default?engine=</code></td><td style="padding:.35rem .5rem;border-bottom:1px solid var(--line)">Ganti engine default (<code>yolo</code>|<code>clip</code>|<code>mobilenetv3</code>|<code>smolvlm</code>).</td></tr>
         </tbody>
       </table>
 
@@ -435,6 +437,9 @@ curl -F "file=@foto.jpg" http://IP:8787/api/moderasi/satu
 
 # Moderasi 1 gambar, paksa engine clip
 curl -F "file=@foto.jpg" "http://IP:8787/api/moderasi/satu?visual=clip"
+
+# Moderasi 1 gambar, paksa engine smolvlm (VLM)
+curl -F "file=@foto.jpg" "http://IP:8787/api/moderasi/satu?visual=smolvlm"
 
 # Moderasi banyak gambar sekaligus
 curl -F "files=@a.jpg" -F "files=@b.png" "http://IP:8787/api/moderasi/bulk?visual=mobilenetv3"
@@ -475,7 +480,7 @@ curl -X POST "http://IP:8787/api/engines/default?engine=mobilenetv3"</code></pre
       <h3>Catatan</h3>
       <ul>
         <li><code>keputusan</code>: <code>LOLOS</code> | <code>DIMODERASI</code> | <code>ERROR</code> (file bukan gambar valid).</li>
-        <li><code>visual_engine</code>: engine yang benar-benar dipakai untuk gambar itu (<code>yolo</code>|<code>clip</code>|<code>mobilenetv3</code>).</li>
+        <li><code>visual_engine</code>: engine yang benar-benar dipakai untuk gambar itu (<code>yolo</code>|<code>clip</code>|<code>mobilenetv3</code>|<code>smolvlm</code>).</li>
         <li><code>yolo_violative</code>: <code>true</code> = kelas violative + conf &ge; ambang (visual sudah memutuskan DIMODERASI).</li>
         <li><code>elapsed_ms</code>: waktu proses request pada <code>ringkasan</code>, dan waktu proses per gambar pada tiap item <code>results</code>.</li>
         <li>Query <code>?visual=</code> hanya berlaku untuk request itu; default server tetap dipakai bila tidak dikirim.</li>
@@ -679,8 +684,9 @@ curl -X POST "http://IP:8787/api/engines/default?engine=mobilenetv3"</code></pre
     rows.forEach((it, i) => {
       const kw = (it.keyword_hits || []).map(k => `<span class="kw">${esc(k)}</span>`).join("") || "&mdash;";
       const alasan = (it.alasan || []).slice(0, 3).map(esc).join("; ") || "&mdash;";
+      const confStr = (it.yolo_conf != null) ? ` <span class="muted">(${esc(it.yolo_conf)})</span>` : "";
       const yolo = it.yolo_class
-        ? `${esc(it.yolo_class)} <span class="muted">(${esc(it.yolo_conf)})</span> <span class="kw" style="font-size:.65rem;padding:.05rem .35rem">${esc(it.visual_engine || "yolo")}</span>`
+        ? `${esc(it.yolo_class)}${confStr} <span class="kw" style="font-size:.65rem;padding:.05rem .35rem">${esc(it.visual_engine || "yolo")}</span>`
         : "&mdash;";
       const thumb = it._url
         ? `<img class="tthumb" src="${it._url}" alt="Preview ${esc(it.filename)}" loading="lazy" data-idx="${i}" onerror="this.style.display='none'">`

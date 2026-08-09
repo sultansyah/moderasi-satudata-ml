@@ -1,6 +1,6 @@
 # Moderasi Gambar Otomatis (Satudata)
 
-Sistem moderasi gambar otomatis yang mendeteksi konten ilegal/berbahaya menggunakan **engine visual** (YOLO11-cls, MobileNetV3, atau CLIP) + **Tesseract OCR** (ekstraksi teks) + **keyword filtering** (blacklist) + **context gate** untuk membedakan iklan/promosi dari berita, edukasi, atau peringatan publik. Keputusan akhir: **LOLOS** atau **DIMODERASI**.
+Sistem moderasi gambar otomatis yang mendeteksi konten ilegal/berbahaya menggunakan **engine visual** (YOLO11-cls, MobileNetV3, CLIP, atau SmolVLM2-500M) + **Tesseract OCR** (ekstraksi teks) + **keyword filtering** (blacklist) + **context gate** untuk membedakan iklan/promosi dari berita, edukasi, atau peringatan publik. Keputusan akhir: **LOLOS** atau **DIMODERASI**.
 
 ## Kelas Model
 
@@ -14,7 +14,7 @@ Sistem moderasi gambar otomatis yang mendeteksi konten ilegal/berbahaya mengguna
 
 ```
 Input Gambar
-  → pilih engine visual: YOLO / MobileNetV3 / CLIP
+  → pilih engine visual: YOLO / MobileNetV3 / CLIP / SmolVLM2
   → jika YOLO/MobileNetV3 violative conf tinggi: DIMODERASI (OCR dilewati)
   → jika CLIP violative: lanjut OCR + Context Gate
   → jika visual tidak violative: lanjut OCR + Keyword Filter
