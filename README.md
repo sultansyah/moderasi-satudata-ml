@@ -56,6 +56,21 @@ HF_HOME=/opt/moderasi/hf_cache MODERASI_VISUAL=smolvlm uv run python server.py
 
 Untuk penggunaan harian, rekomendasi default adalah `mobilenetv3` atau `yolo`, lalu OCR + keyword/context gate menangani iklan berbasis teks. Pakai `smolvlm` hanya saat butuh analisis gambar yang sulit dan jumlahnya sedikit.
 
+## Cara Kerja Berbagai Case
+
+| Case | Alur | Keputusan |
+|---|---|---|
+| Visual jelas `obat_aborsi` di YOLO/MobileNetV3 dengan conf tinggi | Visual melewati `VIOL_CONF_THRESHOLD`; OCR dilewati. | **DIMODERASI** |
+| Visual aman atau conf rendah | Lanjut OCR; keyword/context gate menentukan hasil. | Tergantung OCR |
+| CLIP menilai violative | Tidak langsung final; OCR tetap membaca teks dan context gate mengecek apakah kontennya promosi atau publik/edukatif. | **DIMODERASI** jika tidak ada konteks publik yang kuat |
+| CLIP menilai aman | Tetap lanjut OCR sebagai safety net untuk iklan berbasis teks. | Tergantung OCR |
+| SmolVLM menjawab `ILLEGAL_AD` | Vonis VLM dianggap cukup kuat; OCR dilewati. | **DIMODERASI** |
+| SmolVLM menjawab `PUBLIC_INFO` atau `NORMAL` | Tetap lanjut OCR sebagai safety net. | Tergantung OCR |
+| Poster berita/edukasi berisi keyword sensitif | OCR menemukan keyword, tetapi context gate mendeteksi sinyal publik seperti berita, peringatan, edukasi, pemerintah, kampanye. | **LOLOS** |
+| Iklan teks terselubung dengan kontak/WA | OCR mencari kombinasi sinyal promosi/transaksi, keyword, dan pola terselubung seperti klaim aman/risiko + kontak. | **DIMODERASI** |
+| OCR kosong atau gagal membaca teks | Nama file dipakai fallback keyword; jika tetap tidak ada sinyal, hasil mengikuti visual. | Biasanya **LOLOS** kecuali visual violative |
+| Engine pilihan gagal runtime | Server mencatat warning lalu fallback ke YOLO; field `visual_engine` menunjukkan engine aktual. | Tergantung hasil YOLO/OCR |
+
 ## Instalasi (uv)
 
 ```sh
